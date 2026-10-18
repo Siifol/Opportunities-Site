@@ -1,3 +1,4 @@
+import io
 import os
 import re
 from datetime import date, datetime
@@ -5,14 +6,25 @@ from functools import wraps
 
 import psycopg2
 import psycopg2.extras
-from flask import Flask, request, jsonify, g
+from flask import Flask, request, jsonify, g, send_file
 from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 3 * 1024 * 1024  # request limit, a bit above the 2 MB CV limit
 DATABASE_URL = os.environ["DATABASE_URL"]
 serializer = URLSafeTimedSerializer(os.environ.get("SECRET_KEY", "dev-only-change-me"))
 TOKEN_AGE = 60 * 60 * 24 * 30  # 30 days
+
+EDUCATION_LEVELS = ("highschool", "diploma", "bachelor", "master", "phd", "other")
+CGPA_SCALES = ("4", "5", "10")
+CV_TYPES = {
+    "pdf": "application/pdf",
+    "doc": "application/msword",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+CV_MAX_BYTES = 2 * 1024 * 1024  # 2 MB
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -46,6 +58,14 @@ CREATE TABLE IF NOT EXISTS applications (
     cover_note TEXT DEFAULT '',
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (user_id, opportunity_id)
+);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile JSONB DEFAULT '{}'::jsonb;
+CREATE TABLE IF NOT EXISTS cvs (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id),
+    filename TEXT NOT NULL,
+    mimetype TEXT NOT NULL,
+    data BYTEA NOT NULL,
+    uploaded_at TIMESTAMP DEFAULT NOW()
 );
 """
 
@@ -98,6 +118,50 @@ def public(u):
             "role": u["role"], "country": u["country"]}
 
 
+def to_int(value, low, high):
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return None
+    return n if low <= n <= high else None
+
+
+def build_profile(d):
+    """Clean the academic and work details sent at registration."""
+    def text(key, limit):
+        return str(d.get(key) or "").strip()[:limit]
+
+    scale = str(d.get("cgpaScale") or "4")
+    if scale not in CGPA_SCALES:
+        scale = "4"
+    cgpa = None
+    try:
+        value = float(d.get("cgpa"))
+        if 0 <= value <= float(scale):
+            cgpa = round(value, 2)
+    except (TypeError, ValueError):
+        pass
+
+    edu = str(d.get("education") or "")
+    return {
+        "education": edu if edu in EDUCATION_LEVELS else "",
+        "fieldOfStudy": text("fieldOfStudy", 120),
+        "school": text("school", 150),
+        "gradYear": to_int(d.get("gradYear"), 1950, 2035),
+        "cgpa": cgpa,
+        "cgpaScale": scale,
+        "skills": text("skills", 300),
+        "experienceYears": to_int(d.get("experienceYears"), 0, 60),
+        "experience": text("experience", 2000),
+        "languages": text("languages", 200),
+    }
+
+
+def cv_info(uid):
+    """Return the CV's name and upload time, or None if the user has no CV."""
+    return clean(q("SELECT filename, uploaded_at FROM cvs WHERE user_id = %s", (uid,), one=True))
+
+
 def current_user():
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
@@ -139,6 +203,11 @@ def add_cors(resp):
     return resp
 
 
+@app.errorhandler(413)
+def file_too_big(e):
+    return err("File is too large (max 2 MB).", "Faayilichi guddaa dha (2 MB).", 413)
+
+
 @app.get("/")
 def health():
     return jsonify({"status": "ok", "site": "Opportunities.com"})
@@ -164,13 +233,20 @@ def register():
         return err("Enter your email or phone.", "Imeelii ykn bilbila galchi.")
     if len(password) < 8:
         return err("Password must be at least 8 characters.", "Jechi iccitii 8 ol ta'uu qaba.")
+
+    profile = build_profile(d)
+    if not profile["education"] or not profile["fieldOfStudy"] or not profile["skills"]:
+        return err("Please fill education level, field of study and skills.",
+                   "Maaloo sadarkaa barnootaa, gosa barnootaa fi dandeetii guuti.")
+
     if q("SELECT id FROM users WHERE username = %s OR contact = %s", (username, contact), one=True):
         return err("Username or contact is already used.",
                    "Maqaan fayyadamaa ykn quunnamtiin kun fudhatamee jira.")
 
-    u = q("""INSERT INTO users (full_name, username, contact, password_hash, country)
-             VALUES (%s, %s, %s, %s, %s) RETURNING *""",
-          (full_name, username, contact, generate_password_hash(password), country),
+    u = q("""INSERT INTO users (full_name, username, contact, password_hash, country, profile)
+             VALUES (%s, %s, %s, %s, %s, %s) RETURNING *""",
+          (full_name, username, contact, generate_password_hash(password), country,
+           psycopg2.extras.Json(profile)),
           one=True, commit=True)
     return jsonify({"status": "success", "token": serializer.dumps({"uid": u["id"]}),
                     "user": public(u)}), 201
@@ -192,6 +268,38 @@ def login():
 @login_required
 def me():
     return jsonify({"status": "success", "user": public(g.user)})
+
+
+# ---------- CV (login required) ----------
+
+@app.get("/me/cv")
+@login_required
+def get_my_cv():
+    return jsonify({"status": "success", "cv": cv_info(g.user["id"])})
+
+
+@app.post("/me/cv")
+@login_required
+def upload_my_cv():
+    f = request.files.get("cv")
+    if not f or not f.filename:
+        return err("Choose a CV file first.", "Maaloo faayilii CV filadhu.")
+    ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
+    if ext not in CV_TYPES:
+        return err("CV must be PDF, DOC or DOCX.", "CV PDF, DOC ykn DOCX ta'uu qaba.")
+    data = f.read()
+    if not data:
+        return err("The file is empty.", "Faayilichi duwwaa dha.")
+    if len(data) > CV_MAX_BYTES:
+        return err("CV must be 2 MB or smaller.", "CV 2 MB ol hin ta'u.")
+    q("""INSERT INTO cvs (user_id, filename, mimetype, data, uploaded_at)
+         VALUES (%s, %s, %s, %s, NOW())
+         ON CONFLICT (user_id) DO UPDATE
+         SET filename = EXCLUDED.filename, mimetype = EXCLUDED.mimetype,
+             data = EXCLUDED.data, uploaded_at = NOW()""",
+      (g.user["id"], secure_filename(f.filename) or "cv." + ext, CV_TYPES[ext],
+       psycopg2.Binary(data)), commit=True)
+    return jsonify({"status": "success", "cv": cv_info(g.user["id"])}), 201
 
 
 # ---------- Opportunities (public) ----------
@@ -225,7 +333,7 @@ def get_opportunity(oid):
     return jsonify({"status": "success", "item": clean(row)})
 
 
-# ---------- Applying (login required) ----------
+# ---------- Applying (login and CV required) ----------
 
 @app.post("/opportunities/<int:oid>/apply")
 @login_required
@@ -234,6 +342,9 @@ def apply(oid):
     note = (d.get("coverNote") or "").strip()[:2000]
     if not q("SELECT id FROM opportunities WHERE id = %s AND published = TRUE", (oid,), one=True):
         return err("Not found.", "Hin argamne.", 404)
+    if not cv_info(g.user["id"]):
+        return err("Upload your CV first, then apply.",
+                   "Dura CV kee upload godhi, ergaa iyyadhu.")
     if q("SELECT id FROM applications WHERE user_id = %s AND opportunity_id = %s",
          (g.user["id"], oid), one=True):
         return err("You already applied.", "Dursuun kana irratti galmaa'eera.", 409)
@@ -285,13 +396,24 @@ def hide_opportunity(oid):
 @app.get("/admin/applications")
 @admin_required
 def all_applications():
-    rows = q("""SELECT a.id, a.created_at, a.cover_note, u.full_name, u.contact, u.country,
-                       o.title_en
+    rows = q("""SELECT a.id, a.created_at, a.cover_note, u.id AS user_id, u.full_name,
+                       u.contact, u.country, u.profile, o.title_en,
+                       (SELECT c.filename FROM cvs c WHERE c.user_id = u.id) AS cv_filename
                 FROM applications a
                 JOIN users u ON u.id = a.user_id
                 JOIN opportunities o ON o.id = a.opportunity_id
                 ORDER BY a.created_at DESC""")
     return jsonify({"status": "success", "items": [clean(r) for r in rows]})
+
+
+@app.get("/admin/cv/<int:uid>")
+@admin_required
+def download_cv(uid):
+    row = q("SELECT filename, mimetype, data FROM cvs WHERE user_id = %s", (uid,), one=True)
+    if not row:
+        return err("No CV.", "CV hin jiru.", 404)
+    return send_file(io.BytesIO(bytes(row["data"])), mimetype=row["mimetype"],
+                     as_attachment=True, download_name=row["filename"])
 
 
 if __name__ == "__main__":
