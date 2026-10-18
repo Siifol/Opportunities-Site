@@ -41,20 +41,34 @@ async function load() {
   }
 }
 
-function showApply(id) {
+async function showApply(id) {
   const area = document.getElementById("applyArea");
   if (!getToken()) {
     const next = encodeURIComponent("opportunity.html?id=" + id);
     area.innerHTML = '<a class="btn" href="auth.html?next=' + next + '">' + t("loginToApply") + '</a>';
     return;
   }
+
+  area.innerHTML = '<p class="muted">Checking your CV...</p>';
+  let cv = null;
+  try {
+    cv = (await api("/me/cv")).cv;
+  } catch (e) {}
+
+  if (!cv) {
+    area.innerHTML = '<p class="msg bad">You need to upload your CV before you can apply. <a href="cv.html">Upload CV</a></p>';
+    return;
+  }
+
   area.innerHTML =
+    '<p class="muted">Your CV: <strong>' + esc(cv.filename) + '</strong> (<a href="cv.html">change</a>)</p>' +
     '<form id="applyForm" class="form">' +
       '<label>' + t("coverNote") + '</label>' +
       '<textarea id="note" rows="4"></textarea>' +
       '<button type="submit">' + t("submit") + '</button>' +
       '<p id="applyMsg" class="msg" hidden></p>' +
     '</form>';
+
   document.getElementById("applyForm").addEventListener("submit", async function (e) {
     e.preventDefault();
     const m = document.getElementById("applyMsg");
