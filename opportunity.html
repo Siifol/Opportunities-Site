@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Opportunity — Opportunities.com</title>
+<style>
+  .cv-choice { display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    border: 1px solid #dbe4ee; border-radius: 10px; cursor: pointer; font-weight: 600; }
+  .cv-choice input { width: auto; margin: 0; }
+  .cv-box { display: grid; gap: 8px; }
+</style>
 <script src="app.js"></script>
 </head>
 <body>
@@ -56,12 +62,18 @@ async function showApply(id) {
   } catch (e) {}
 
   if (!cv) {
-    area.innerHTML = '<p class="msg bad">You need to upload your CV before you can apply. <a href="cv.html">Upload CV</a></p>';
+    area.innerHTML = '<p class="msg bad">You need a CV to apply. <a href="cv.html">Upload CV</a></p>';
     return;
   }
 
   area.innerHTML =
-    '<p class="muted">Your CV: <strong>' + esc(cv.filename) + '</strong> (<a href="cv.html">change</a>)</p>' +
+    '<div class="cv-box">' +
+      '<p class="muted">Your current CV: <strong id="cvName">' + esc(cv.filename) + '</strong></p>' +
+      '<label class="cv-choice"><input type="radio" name="cvChoice" value="current" checked> Continue with current CV</label>' +
+      '<label class="cv-choice"><input type="radio" name="cvChoice" value="new"> Update CV (upload a new one)</label>' +
+      '<input id="newCv" type="file" accept=".pdf,.doc,.docx" hidden>' +
+      '<p id="newCvName" class="muted" hidden></p>' +
+    '</div>' +
     '<form id="applyForm" class="form">' +
       '<label>' + t("coverNote") + '</label>' +
       '<textarea id="note" rows="4"></textarea>' +
@@ -69,16 +81,58 @@ async function showApply(id) {
       '<p id="applyMsg" class="msg" hidden></p>' +
     '</form>';
 
+  const radios = document.querySelectorAll('input[name="cvChoice"]');
+  const newFile = document.getElementById("newCv");
+  const newName = document.getElementById("newCvName");
+
+  radios.forEach(function (r) {
+    r.addEventListener("change", function () {
+      const isNew = document.querySelector('input[name="cvChoice"]:checked').value === "new";
+      newFile.hidden = !isNew;
+      newName.hidden = true;
+      if (isNew) newFile.click();
+    });
+  });
+
+  newFile.addEventListener("change", function () {
+    if (newFile.files[0]) {
+      newName.textContent = "New CV: " + newFile.files[0].name;
+      newName.hidden = false;
+    }
+  });
+
   document.getElementById("applyForm").addEventListener("submit", async function (e) {
     e.preventDefault();
     const m = document.getElementById("applyMsg");
+    m.hidden = true;
+    const choice = document.querySelector('input[name="cvChoice"]:checked').value;
+
     try {
+      if (choice === "new") {
+        const file = newFile.files[0];
+        if (!file) throw new Error("Please choose your new CV file.");
+        const ext = file.name.split(".").pop().toLowerCase();
+        if (["pdf", "doc", "docx"].indexOf(ext) === -1) throw new Error("CV must be PDF, DOC or DOCX.");
+        if (file.size > 2 * 1024 * 1024) throw new Error("CV must be 2 MB or smaller.");
+
+        const fd = new FormData();
+        fd.append("cv", file);
+        const res = await fetch(API + "/me/cv", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + getToken() },
+          body: fd
+        });
+        const data = await res.json().catch(function () { return {}; });
+        if (!res.ok) throw new Error(data.message || "CV upload failed.");
+      }
+
       await api("/opportunities/" + id + "/apply", {
         method: "POST",
         body: JSON.stringify({ coverNote: document.getElementById("note").value })
       });
       m.textContent = t("applied");
       m.className = "msg ok";
+      e.target.querySelector("button").disabled = true;
     } catch (err) {
       m.textContent = err.message;
       m.className = "msg bad";
