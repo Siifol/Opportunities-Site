@@ -17,6 +17,11 @@
 <script>
 function v(id) { return document.getElementById(id).value.trim(); }
 
+const LEVEL_NAMES = {
+  highschool: "High school", diploma: "Diploma / TVET", bachelor: "Bachelor's",
+  master: "Master's", phd: "PhD", other: "Other"
+};
+
 document.addEventListener("DOMContentLoaded", function () {
   const u = getUser();
   const box = document.getElementById("adminBox");
@@ -76,6 +81,30 @@ async function addOpp(e) {
   m.hidden = false;
 }
 
+function listText(value) {
+  if (typeof value === "string") return value ? esc(value) : "-";
+  return Array.isArray(value) && value.length ? value.map(esc).join(", ") : "-";
+}
+
+function educationHtml(list) {
+  if (!Array.isArray(list) || !list.length) return '<p class="muted">No education added.</p>';
+  return list.map(function (x) {
+    return '<p><b>' + esc(LEVEL_NAMES[x.level] || x.level || "-") + '</b> · ' + esc(x.field || "-") +
+      ' · ' + esc(x.school || "-") +
+      (x.gradYear ? ' · ' + esc(x.gradYear) : '') +
+      (x.cgpa != null ? ' · CGPA ' + esc(x.cgpa) + ' / ' + esc(x.cgpaScale || "") : '') + '</p>';
+  }).join("");
+}
+
+function experienceHtml(list) {
+  if (!Array.isArray(list) || !list.length) return '<p class="muted">No work experience added.</p>';
+  return list.map(function (x) {
+    return '<p><b>' + esc(x.title || "-") + '</b> at ' + esc(x.organization || "-") +
+      ' (' + esc(x.years != null ? x.years : "-") + ' yrs)' +
+      (x.details ? '<br><span class="muted">' + esc(x.details) + '</span>' : '') + '</p>';
+  }).join("");
+}
+
 async function loadApps() {
   const box = document.getElementById("apps");
   try {
@@ -89,11 +118,10 @@ async function loadApps() {
       return '<div class="card">' +
         '<strong>' + esc(a.full_name) + '</strong> · ' + esc(a.contact) + ' · ' + esc(a.country || "") +
         '<br><span class="muted">Applied for: ' + esc(a.title_en) + '</span>' +
-        '<p class="muted">' + esc(p.education || "-") + ' · ' + esc(p.fieldOfStudy || "-") + ' · ' + esc(p.school || "-") + (p.gradYear ? ' · ' + esc(p.gradYear) : '') + '</p>' +
-        '<p>CGPA: ' + esc(p.cgpa != null ? p.cgpa : "-") + ' / ' + esc(p.cgpaScale || "") + '</p>' +
-        '<p><b>Skills:</b> ' + esc(p.skills || "-") + '</p>' +
-        '<p><b>Experience:</b> ' + esc(p.experienceYears != null ? p.experienceYears : 0) + ' yrs — ' + esc(p.experience || "-") + '</p>' +
-        '<p><b>Languages:</b> ' + esc(p.languages || "-") + '</p>' +
+        '<p><b>Education:</b></p>' + educationHtml(p.education) +
+        '<p><b>Skills:</b> ' + listText(p.skills) + '</p>' +
+        '<p><b>Languages:</b> ' + listText(p.languages) + '</p>' +
+        '<p><b>Work experience:</b></p>' + experienceHtml(p.experience) +
         (a.cover_note ? '<p>' + esc(a.cover_note) + '</p>' : '') +
         (a.cv_filename
           ? '<p><button onclick="downloadCv(' + Number(a.user_id) + ', this)" data-name="' + esc(a.cv_filename) + '">Download CV</button></p>'
