@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Login / Register — Opportunities.com</title>
+<script src="app.js"></script>
+</head>
+<body>
+<header id="top"></header>
+
+<main>
+  <a class="back" href="index.html" data-i18n="back"></a>
+  <div class="box">
+    <div class="tabs">
+      <button id="tabLogin" class="on" data-i18n="loginTab"></button>
+      <button id="tabReg" data-i18n="register"></button>
+    </div>
+
+    <form id="loginForm" class="form">
+      <label data-i18n="contact"></label>
+      <input id="lContact" required autocomplete="username">
+      <label data-i18n="password"></label>
+      <input id="lPass" type="password" required autocomplete="current-password">
+      <button type="submit" data-i18n="loginBtn"></button>
+    </form>
+
+    <form id="regForm" class="form" hidden>
+      <label data-i18n="fullName"></label>
+      <input id="rFull" required>
+      <label data-i18n="username"></label>
+      <input id="rUser" required>
+      <label data-i18n="contact"></label>
+      <input id="rContact" required>
+      <label data-i18n="country"></label>
+      <input id="rCountry" value="Ethiopia">
+      <label data-i18n="password"></label>
+      <input id="rPass" type="password" required minlength="8" autocomplete="new-password">
+      <button type="submit" data-i18n="createAccount"></button>
+    </form>
+
+    <p id="msg" class="msg" hidden></p>
+  </div>
+</main>
+
+<script>
+function nextPage() {
+  const n = new URLSearchParams(location.search).get("next") || "index.html";
+  return /^[a-z-]+\.html(\?[a-z0-9=&_-]*)?$/i.test(n) ? n : "index.html";
+}
+
+function say(text, ok) {
+  const m = document.getElementById("msg");
+  m.textContent = text;
+  m.className = "msg " + (ok ? "ok" : "bad");
+  m.hidden = false;
+}
+
+function showTab(which) {
+  const isLogin = which === "login";
+  document.getElementById("tabLogin").classList.toggle("on", isLogin);
+  document.getElementById("tabReg").classList.toggle("on", !isLogin);
+  document.getElementById("loginForm").hidden = !isLogin;
+  document.getElementById("regForm").hidden = isLogin;
+  document.getElementById("msg").hidden = true;
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  document.getElementById("tabLogin").addEventListener("click", function () { showTab("login"); });
+  document.getElementById("tabReg").addEventListener("click", function () { showTab("register"); });
+
+  document.getElementById("loginForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    try {
+      const d = await api("/login", {
+        method: "POST",
+        body: JSON.stringify({
+          contact: document.getElementById("lContact").value,
+          password: document.getElementById("lPass").value
+        })
+      });
+      saveSession(d.token, d.user);
+      location.href = nextPage();
+    } catch (err) {
+      say(err.message, false);
+    }
+  });
+
+  document.getElementById("regForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    try {
+      const d = await api("/register", {
+        method: "POST",
+        body: JSON.stringify({
+          fullName: document.getElementById("rFull").value,
+          username: document.getElementById("rUser").value,
+          contact: document.getElementById("rContact").value,
+          country: document.getElementById("rCountry").value,
+          password: document.getElementById("rPass").value
+        })
+      });
+      saveSession(d.token, d.user);
+      location.href = nextPage();
+    } catch (err) {
+      say(err.message, false);
+    }
+  });
+});
+</script>
+</body>
+</html>
