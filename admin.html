@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin — Opportunities.com</title>
+<script src="app.js"></script>
+</head>
+<body>
+<header id="top"></header>
+
+<main>
+  <a class="back" href="index.html">← Back</a>
+  <div class="box" id="adminBox"><p class="muted">Loading...</p></div>
+</main>
+
+<script>
+function v(id) { return document.getElementById(id).value.trim(); }
+
+document.addEventListener("DOMContentLoaded", function () {
+  const u = getUser();
+  const box = document.getElementById("adminBox");
+  if (!getToken() || !u || u.role !== "admin") {
+    box.innerHTML = '<p class="msg bad">' + t("adminOnly") + ' <a href="auth.html?next=admin.html">' + t("login") + '</a></p>';
+    return;
+  }
+  box.innerHTML =
+    '<h2>Add opportunity</h2>' +
+    '<form id="addForm" class="form">' +
+      '<label>Type</label>' +
+      '<select id="fType"><option value="job">Job</option><option value="scholarship">Scholarship</option><option value="other">Other</option></select>' +
+      '<label>Title (English) *</label><input id="fTitle" required>' +
+      '<label>Title (Amharic)</label><input id="fTitleAm">' +
+      '<label>Title (Afaan Oromoo)</label><input id="fTitleOm">' +
+      '<label>Organization</label><input id="fOrg">' +
+      '<label>Country</label><input id="fCountry" value="Ethiopia">' +
+      '<label>Deadline</label><input id="fDeadline" type="date">' +
+      '<label>Description (English)</label><textarea id="fDesc" rows="4"></textarea>' +
+      '<label>Official application link</label><input id="fUrl" type="url" placeholder="https://">' +
+      '<button type="submit">Save opportunity</button>' +
+      '<p id="aMsg" class="msg" hidden></p>' +
+    '</form>' +
+    '<h2>Applications</h2>' +
+    '<div id="apps"><p class="muted">Loading...</p></div>';
+
+  document.getElementById("addForm").addEventListener("submit", addOpp);
+  loadApps();
+});
+
+async function addOpp(e) {
+  e.preventDefault();
+  const m = document.getElementById("aMsg");
+  try {
+    await api("/admin/opportunities", {
+      method: "POST",
+      body: JSON.stringify({
+        type: v("fType"),
+        titleEn: v("fTitle"),
+        titleAm: v("fTitleAm"),
+        titleOm: v("fTitleOm"),
+        organization: v("fOrg"),
+        country: v("fCountry"),
+        deadline: v("fDeadline"),
+        descriptionEn: v("fDesc"),
+        applyUrl: v("fUrl")
+      })
+    });
+    m.textContent = "Saved.";
+    m.className = "msg ok";
+    e.target.reset();
+    document.getElementById("fCountry").value = "Ethiopia";
+  } catch (err) {
+    m.textContent = err.message;
+    m.className = "msg bad";
+  }
+  m.hidden = false;
+}
+
+async function loadApps() {
+  const box = document.getElementById("apps");
+  try {
+    const data = await api("/admin/applications");
+    if (!data.items.length) {
+      box.innerHTML = '<p class="muted">No applications yet.</p>';
+      return;
+    }
+    box.innerHTML = data.items.map(function (a) {
+      return '<div class="card">' +
+        '<strong>' + esc(a.full_name) + '</strong> · ' + esc(a.contact) + ' · ' + esc(a.country || "") +
+        '<br><span class="muted">' + esc(a.title_en) + '</span>' +
+        (a.cover_note ? '<p>' + esc(a.cover_note) + '</p>' : '') +
+        '<small class="muted">' + esc(a.created_at) + '</small>' +
+        '</div>';
+    }).join("");
+  } catch (err) {
+    box.innerHTML = '<p class="msg bad">' + esc(err.message) + '</p>';
+  }
+}
+</script>
+</body>
+</html>
