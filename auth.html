@@ -8,6 +8,11 @@
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .form h3 { margin: 16px 0 2px; color: #123b63; font-size: 1.05rem; border-bottom: 1px solid #dbe4ee; padding-bottom: 4px; }
   .hint { font-size: 0.85rem; color: #64748b; font-weight: 400; }
+  .lang-row { display: flex; gap: 8px; align-items: center; }
+  .lang-row input { flex: 1; }
+  .exp-item { display: grid; gap: 6px; padding: 10px; border: 1px dashed #b9cbe0; border-radius: 10px; background: #fbfdff; }
+  .add { background: #eaf2fb; color: #123b63; border: 1px solid #b9cbe0; justify-self: start; }
+  .rm { background: #fdecea; color: #8a1c1c; padding: 6px 10px; justify-self: start; }
 </style>
 <script src="app.js"></script>
 </head>
@@ -42,46 +47,31 @@
       <select id="rCountry" data-countries></select>
 
       <h3 data-fx="secAcad"></h3>
-      <label data-fx="edu"></label>
-      <select id="rEdu" required>
-        <option value="">-</option>
-        <option value="highschool">High school</option>
-        <option value="diploma">Diploma / TVET</option>
-        <option value="bachelor">Bachelor's degree</option>
-        <option value="master">Master's degree</option>
-        <option value="phd">PhD</option>
-        <option value="other">Other</option>
-      </select>
-      <label data-fx="field"></label>
-      <input id="rField" required>
-      <label data-fx="school"></label>
-      <input id="rSchool">
-      <label data-fx="gradYear"></label>
-      <input id="rYear" type="number" min="1950" max="2035">
-      <div class="row2">
-        <div>
-          <label data-fx="cgpa"></label>
-          <input id="rCgpa" type="number" step="0.01" min="0">
-        </div>
-        <div>
-          <label data-fx="outOf"></label>
-          <select id="rScale">
-            <option value="4">4.0</option>
-            <option value="5">5.0</option>
-            <option value="10">10.0</option>
-          </select>
-        </div>
-      </div>
       <label data-fx="skills"></label>
-      <input id="rSkills" required placeholder="Excel, Teaching, Accounting">
+      <div id="skillList" class="form"></div>
+      <button type="button" class="add" id="addSkill"></button>
+
+      <label data-fx="eduLabel"></label>
+      <div id="eduList" class="form"></div>
+      <button type="button" class="add" id="addEdu"></button>
 
       <h3 data-fx="secWork"></h3>
-      <label data-fx="expYears"></label>
-      <input id="rExpYears" type="number" min="0" max="60">
-      <label data-fx="exp"></label>
-      <textarea id="rExp" rows="3"></textarea>
       <label data-fx="langs"></label>
-      <input id="rLang">
+      <div id="langList" class="form">
+        <div class="lang-row"><input class="lang-in" placeholder="e.g. Amharic"></div>
+      </div>
+      <button type="button" class="add" id="addLang"></button>
+
+      <label data-fx="expLabel"></label>
+      <div id="expList" class="form">
+        <div class="exp-item">
+          <input class="ex-title" placeholder="Job title">
+          <input class="ex-org" placeholder="Organization">
+          <input class="ex-years" type="number" min="0" max="60" placeholder="Years">
+          <textarea class="ex-details" rows="2" placeholder="What you did"></textarea>
+        </div>
+      </div>
+      <button type="button" class="add" id="addExp"></button>
 
       <h3 data-fx="secCv"></h3>
       <label data-fx="cvLabel"></label>
@@ -101,22 +91,32 @@
 <script>
 const FX = {
   secBasic: { en: "Basic information", am: "መሠረታዊ መረጃ", om: "Odeeffannoo bu'uuraa" },
-  secAcad:  { en: "Academic background", am: "የትምህርት ዳራ", om: "Seenaa barnoota" },
-  secWork:  { en: "Work experience", am: "የሥራ ልምድ", om: "Muuxannoo hojii" },
+  secAcad:  { en: "Skills and education", am: "ክህሎትና ትምህርት", om: "Dandeetii fi barnoota" },
+  secWork:  { en: "Languages and work experience", am: "ቋንቋዎችና የሥራ ልምድ", om: "Afaan fi muuxannoo hojii" },
   secCv:    { en: "Your CV", am: "የእርስዎ CV", om: "CV kee" },
-  edu:      { en: "Highest education level", am: "ከፍተኛ የትምህርት ደረጃ", om: "Sadarkaa barnoota olaanaa" },
-  field:    { en: "Field of study", am: "የትምህርት ዘርፍ", om: "Gosa barnoota" },
-  school:   { en: "University / college / school", am: "ዩኒቨርሲቲ / ኮሌጅ / ትምህርት ቤት", om: "Yunivarsitii / kolleejii / mana barumsaa" },
-  gradYear: { en: "Graduation year", am: "የተመረቀበት ዓመት", om: "Waggaa xumurte" },
-  cgpa:     { en: "CGPA / GPA", am: "CGPA / GPA", om: "CGPA / GPA" },
-  outOf:    { en: "Out of", am: "ከ", om: "Irra" },
-  skills:   { en: "Skills (comma separated)", am: "ክህሎቶች (በኮማ ለዩ)", om: "Dandeetii (koomaan adda baasi)" },
-  expYears: { en: "Years of work experience", am: "የሥራ ልምድ (ዓመት)", om: "Muuxannoo hojii (waggaa)" },
-  exp:      { en: "Work details (job title, organization, what you did)", am: "የሥራ ዝርዝር (የሥራ መደብ፣ ድርጅት፣ ያደረጉት)", om: "Ibsa hojii (maqaa hojii, dhaabbata, wanta hojjette)" },
-  langs:    { en: "Languages you speak", am: "የምትናገሯቸው ቋንቋዎች", om: "Afaan ati dubbattu" },
+  skills:   { en: "Skills (add more with +)", am: "ክህሎቶች (ለበለጠ + ን ይጫኑ)", om: "Dandeetii (dabalataaf + tuqi)" },
+  addSkill: { en: "+ Add skill", am: "+ ክህሎት ጨምር", om: "+ Dandeetii dabali" },
+  eduLabel: { en: "Education (add more with +)", am: "ትምህርት (ለበለጠ + ን ይጫኑ)", om: "Barnoota (dabalataaf + tuqi)" },
+  addEdu:   { en: "+ Add education", am: "+ ትምህርት ጨምር", om: "+ Barnoota dabali" },
+  langs:    { en: "Languages you speak (add more with +)", am: "የምትናገሯቸው ቋንቋዎች (ለበለጠ + ን ይጫኑ)", om: "Afaan ati dubbattu (dabalataaf + tuqi)" },
+  addLang:  { en: "+ Add language", am: "+ ቋንቋ ጨምር", om: "+ Afaan dabali" },
+  expLabel: { en: "Work experience (add more with +)", am: "የሥራ ልምድ (ለበለጠ + ን ይጫኑ)", om: "Muuxannoo hojii (dabalataaf + tuqi)" },
+  addExp:   { en: "+ Add experience", am: "+ የሥራ ልምድ ጨምር", om: "+ Muuxannoo dabali" },
+  remove:   { en: "Remove", am: "አስወግድ", om: "Balleessi" },
   cvLabel:  { en: "Upload your CV", am: "CV ይጫኑ", om: "CV kee upload godhi" },
   cvHint:   { en: "PDF, DOC or DOCX, up to 2 MB. You can replace it later from My CV.", am: "PDF፣ DOC ወይም DOCX፣ እስከ 2 MB። በኋላ በ My CV መቀየር ይችላሉ።", om: "PDF, DOC ykn DOCX, hanga 2 MB. Booda My CV irraa jijjiiruu ni dandeessa." }
 };
+
+const EDU_LEVELS = [
+  ["highschool", "High school"],
+  ["diploma", "Diploma / TVET"],
+  ["bachelor", "Bachelor's degree"],
+  ["master", "Master's degree"],
+  ["phd", "PhD"],
+  ["other", "Other"]
+];
+
+function fx(key) { return FX[key][LANG] || FX[key].en; }
 
 function val(id) { return document.getElementById(id).value.trim(); }
 
@@ -141,14 +141,108 @@ function showTab(which) {
   document.getElementById("msg").hidden = true;
 }
 
+function skillRowHtml() {
+  return '<div class="lang-row"><input class="skill-in" placeholder="e.g. Excel"><button type="button" class="rm">' + fx("remove") + '</button></div>';
+}
+
+function eduItemHtml() {
+  const options = EDU_LEVELS.map(function (l) { return '<option value="' + l[0] + '">' + l[1] + '</option>'; }).join("");
+  return '<div class="exp-item edu-item">' +
+    '<select class="ed-level">' + options + '</select>' +
+    '<input class="ed-field" placeholder="Field of study">' +
+    '<input class="ed-school" placeholder="University / college / school">' +
+    '<input class="ed-year" type="number" min="1950" max="2035" placeholder="Graduation year">' +
+    '<div class="row2">' +
+      '<input class="ed-cgpa" type="number" step="0.01" min="0" placeholder="CGPA / GPA">' +
+      '<select class="ed-scale"><option value="4">out of 4.0</option><option value="5">out of 5.0</option><option value="10">out of 10.0</option></select>' +
+    '</div>' +
+    '<button type="button" class="rm">' + fx("remove") + '</button>' +
+  '</div>';
+}
+
+function collectSkills() {
+  return Array.from(document.querySelectorAll(".skill-in"))
+    .map(function (i) { return i.value.trim(); })
+    .filter(Boolean);
+}
+
+function collectEdu() {
+  return Array.from(document.querySelectorAll(".edu-item")).map(function (b) {
+    return {
+      level: b.querySelector(".ed-level").value,
+      field: b.querySelector(".ed-field").value.trim(),
+      school: b.querySelector(".ed-school").value.trim(),
+      gradYear: b.querySelector(".ed-year").value.trim(),
+      cgpa: b.querySelector(".ed-cgpa").value.trim(),
+      cgpaScale: b.querySelector(".ed-scale").value
+    };
+  }).filter(function (x) { return x.field; });
+}
+
+function collectLangs() {
+  return Array.from(document.querySelectorAll(".lang-in"))
+    .map(function (i) { return i.value.trim(); })
+    .filter(Boolean);
+}
+
+function collectExp() {
+  return Array.from(document.querySelectorAll(".exp-item:not(.edu-item)")).map(function (b) {
+    return {
+      title: b.querySelector(".ex-title").value.trim(),
+      organization: b.querySelector(".ex-org").value.trim(),
+      years: b.querySelector(".ex-years").value.trim(),
+      details: b.querySelector(".ex-details").value.trim()
+    };
+  }).filter(function (x) { return x.title || x.organization; });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll("[data-fx]").forEach(function (el) {
-    const d = FX[el.dataset.fx];
-    el.textContent = d[LANG] || d.en;
+    el.textContent = fx(el.dataset.fx);
   });
+  document.getElementById("addSkill").textContent = fx("addSkill");
+  document.getElementById("addEdu").textContent = fx("addEdu");
+  document.getElementById("addLang").textContent = fx("addLang");
+  document.getElementById("addExp").textContent = fx("addExp");
+
+  // Start with one skill row and one education entry
+  document.getElementById("skillList").innerHTML = skillRowHtml();
+  document.getElementById("eduList").innerHTML = eduItemHtml();
 
   document.getElementById("tabLogin").addEventListener("click", function () { showTab("login"); });
   document.getElementById("tabReg").addEventListener("click", function () { showTab("register"); });
+
+  // + buttons
+  document.getElementById("addSkill").addEventListener("click", function () {
+    document.getElementById("skillList").insertAdjacentHTML("beforeend", skillRowHtml());
+  });
+  document.getElementById("addEdu").addEventListener("click", function () {
+    document.getElementById("eduList").insertAdjacentHTML("beforeend", eduItemHtml());
+  });
+  document.getElementById("addLang").addEventListener("click", function () {
+    const row = document.createElement("div");
+    row.className = "lang-row";
+    row.innerHTML = '<input class="lang-in" placeholder="e.g. English"><button type="button" class="rm">' + fx("remove") + '</button>';
+    document.getElementById("langList").appendChild(row);
+  });
+  document.getElementById("addExp").addEventListener("click", function () {
+    const item = document.createElement("div");
+    item.className = "exp-item";
+    item.innerHTML =
+      '<input class="ex-title" placeholder="Job title">' +
+      '<input class="ex-org" placeholder="Organization">' +
+      '<input class="ex-years" type="number" min="0" max="60" placeholder="Years">' +
+      '<textarea class="ex-details" rows="2" placeholder="What you did"></textarea>' +
+      '<button type="button" class="rm">' + fx("remove") + '</button>';
+    document.getElementById("expList").appendChild(item);
+  });
+
+  // Remove buttons (one handler for every list)
+  ["skillList", "eduList", "langList", "expList"].forEach(function (id) {
+    document.getElementById(id).addEventListener("click", function (e) {
+      if (e.target.classList.contains("rm")) e.target.parentElement.remove();
+    });
+  });
 
   document.getElementById("loginForm").addEventListener("submit", async function (e) {
     e.preventDefault();
@@ -169,6 +263,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
   document.getElementById("regForm").addEventListener("submit", async function (e) {
     e.preventDefault();
+
+    const skills = collectSkills();
+    if (!skills.length) {
+      say("Add at least one skill.", false);
+      return;
+    }
+    const education = collectEdu();
+    if (!education.length) {
+      say("Add at least one education entry with a field of study.", false);
+      return;
+    }
 
     const file = document.getElementById("rCv").files[0];
     if (!file) {
@@ -195,16 +300,10 @@ document.addEventListener("DOMContentLoaded", function () {
           contact: val("rContact"),
           country: val("rCountry"),
           password: document.getElementById("rPass").value,
-          education: val("rEdu"),
-          fieldOfStudy: val("rField"),
-          school: val("rSchool"),
-          gradYear: val("rYear"),
-          cgpa: val("rCgpa"),
-          cgpaScale: val("rScale"),
-          skills: val("rSkills"),
-          experienceYears: val("rExpYears"),
-          experience: val("rExp"),
-          languages: val("rLang")
+          skills: skills,
+          education: education,
+          languages: collectLangs(),
+          experience: collectExp()
         })
       });
     } catch (err) {
