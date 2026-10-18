@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My CV — Opportunities.com</title>
+<script src="app.js"></script>
+</head>
+<body>
+<header id="top"></header>
+
+<main>
+  <a class="back" href="index.html">← Back</a>
+  <div class="box">
+    <h2>My CV</h2>
+    <p class="muted">Upload your CV once and use it to apply for every opportunity. PDF, DOC or DOCX, up to 2 MB. Uploading a new file replaces the old one.</p>
+    <p id="current" class="muted">Loading...</p>
+
+    <form id="cvForm" class="form">
+      <label>Choose CV file</label>
+      <input id="cvFile" type="file" accept=".pdf,.doc,.docx" required>
+      <button type="submit">Upload CV</button>
+      <p id="cvMsg" class="msg" hidden></p>
+    </form>
+  </div>
+</main>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (!getToken()) {
+    location.href = "auth.html?next=cv.html";
+    return;
+  }
+  showCurrent();
+  document.getElementById("cvForm").addEventListener("submit", upload);
+});
+
+async function showCurrent() {
+  const el = document.getElementById("current");
+  try {
+    const d = await api("/me/cv");
+    if (d.cv) {
+      el.innerHTML = 'Current CV: <strong>' + esc(d.cv.filename) + '</strong><br>Uploaded: ' + esc(d.cv.uploaded_at);
+    } else {
+      el.textContent = "You have not uploaded a CV yet. You need one before you can apply.";
+    }
+  } catch (err) {
+    el.textContent = err.message;
+  }
+}
+
+async function upload(e) {
+  e.preventDefault();
+  const m = document.getElementById("cvMsg");
+  const file = document.getElementById("cvFile").files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) {
+    m.textContent = "CV must be 2 MB or smaller.";
+    m.className = "msg bad";
+    m.hidden = false;
+    return;
+  }
+  const fd = new FormData();
+  fd.append("cv", file);
+  try {
+    const res = await fetch(API + "/me/cv", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + getToken() },
+      body: fd
+    });
+    const data = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error(data.message || "Upload failed.");
+    m.textContent = "CV saved.";
+    m.className = "msg ok";
+    e.target.reset();
+    showCurrent();
+  } catch (err) {
+    m.textContent = err.message;
+    m.className = "msg bad";
+  }
+  m.hidden = false;
+}
+</script>
+</body>
+</html>
