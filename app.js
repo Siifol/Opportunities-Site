@@ -169,6 +169,7 @@ function renderHeader() {
       '<div class="nav">' +
         '<button class="lang" onclick="cycleLang()">' + nextLabel + '</button>' +
         (loggedIn && u.role === "admin" ? '<a href="admin.html">Admin</a>' : '') +
+        (loggedIn ? '<a href="cv.html">My CV</a>' : '') +
         (loggedIn
           ? '<button class="lang" onclick="logout()">' + t("logout") + ' (' + esc(u.username) + ')</button>'
           : '<a class="btn small" href="auth.html">' + t("login") + '</a>') +
