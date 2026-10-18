@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Login / Register — Opportunities.com</title>
+<style>
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form h3 { margin: 16px 0 2px; color: #123b63; font-size: 1.05rem; border-bottom: 1px solid #dbe4ee; padding-bottom: 4px; }
+  .hint { font-size: 0.85rem; color: #64748b; font-weight: 400; }
+</style>
 <script src="app.js"></script>
 </head>
 <body>
@@ -26,6 +31,7 @@
     </form>
 
     <form id="regForm" class="form" hidden>
+      <h3 data-fx="secBasic"></h3>
       <label data-i18n="fullName"></label>
       <input id="rFull" required>
       <label data-i18n="username"></label>
@@ -33,7 +39,56 @@
       <label data-i18n="contact"></label>
       <input id="rContact" required>
       <label data-i18n="country"></label>
-      <input id="rCountry" value="Ethiopia">
+      <select id="rCountry" data-countries></select>
+
+      <h3 data-fx="secAcad"></h3>
+      <label data-fx="edu"></label>
+      <select id="rEdu" required>
+        <option value="">-</option>
+        <option value="highschool">High school</option>
+        <option value="diploma">Diploma / TVET</option>
+        <option value="bachelor">Bachelor's degree</option>
+        <option value="master">Master's degree</option>
+        <option value="phd">PhD</option>
+        <option value="other">Other</option>
+      </select>
+      <label data-fx="field"></label>
+      <input id="rField" required>
+      <label data-fx="school"></label>
+      <input id="rSchool">
+      <label data-fx="gradYear"></label>
+      <input id="rYear" type="number" min="1950" max="2035">
+      <div class="row2">
+        <div>
+          <label data-fx="cgpa"></label>
+          <input id="rCgpa" type="number" step="0.01" min="0">
+        </div>
+        <div>
+          <label data-fx="outOf"></label>
+          <select id="rScale">
+            <option value="4">4.0</option>
+            <option value="5">5.0</option>
+            <option value="10">10.0</option>
+          </select>
+        </div>
+      </div>
+      <label data-fx="skills"></label>
+      <input id="rSkills" required placeholder="Excel, Teaching, Accounting">
+
+      <h3 data-fx="secWork"></h3>
+      <label data-fx="expYears"></label>
+      <input id="rExpYears" type="number" min="0" max="60">
+      <label data-fx="exp"></label>
+      <textarea id="rExp" rows="3"></textarea>
+      <label data-fx="langs"></label>
+      <input id="rLang">
+
+      <h3 data-fx="secCv"></h3>
+      <label data-fx="cvLabel"></label>
+      <input id="rCv" type="file" accept=".pdf,.doc,.docx" required>
+      <span class="hint" data-fx="cvHint"></span>
+
+      <h3 data-i18n="password"></h3>
       <label data-i18n="password"></label>
       <input id="rPass" type="password" required minlength="8" autocomplete="new-password">
       <button type="submit" data-i18n="createAccount"></button>
@@ -44,6 +99,27 @@
 </main>
 
 <script>
+const FX = {
+  secBasic: { en: "Basic information", am: "መሠረታዊ መረጃ", om: "Odeeffannoo bu'uuraa" },
+  secAcad:  { en: "Academic background", am: "የትምህርት ዳራ", om: "Seenaa barnoota" },
+  secWork:  { en: "Work experience", am: "የሥራ ልምድ", om: "Muuxannoo hojii" },
+  secCv:    { en: "Your CV", am: "የእርስዎ CV", om: "CV kee" },
+  edu:      { en: "Highest education level", am: "ከፍተኛ የትምህርት ደረጃ", om: "Sadarkaa barnoota olaanaa" },
+  field:    { en: "Field of study", am: "የትምህርት ዘርፍ", om: "Gosa barnoota" },
+  school:   { en: "University / college / school", am: "ዩኒቨርሲቲ / ኮሌጅ / ትምህርት ቤት", om: "Yunivarsitii / kolleejii / mana barumsaa" },
+  gradYear: { en: "Graduation year", am: "የተመረቀበት ዓመት", om: "Waggaa xumurte" },
+  cgpa:     { en: "CGPA / GPA", am: "CGPA / GPA", om: "CGPA / GPA" },
+  outOf:    { en: "Out of", am: "ከ", om: "Irra" },
+  skills:   { en: "Skills (comma separated)", am: "ክህሎቶች (በኮማ ለዩ)", om: "Dandeetii (koomaan adda baasi)" },
+  expYears: { en: "Years of work experience", am: "የሥራ ልምድ (ዓመት)", om: "Muuxannoo hojii (waggaa)" },
+  exp:      { en: "Work details (job title, organization, what you did)", am: "የሥራ ዝርዝር (የሥራ መደብ፣ ድርጅት፣ ያደረጉት)", om: "Ibsa hojii (maqaa hojii, dhaabbata, wanta hojjette)" },
+  langs:    { en: "Languages you speak", am: "የምትናገሯቸው ቋንቋዎች", om: "Afaan ati dubbattu" },
+  cvLabel:  { en: "Upload your CV", am: "CV ይጫኑ", om: "CV kee upload godhi" },
+  cvHint:   { en: "PDF, DOC or DOCX, up to 2 MB. You can replace it later from My CV.", am: "PDF፣ DOC ወይም DOCX፣ እስከ 2 MB። በኋላ በ My CV መቀየር ይችላሉ።", om: "PDF, DOC ykn DOCX, hanga 2 MB. Booda My CV irraa jijjiiruu ni dandeessa." }
+};
+
+function val(id) { return document.getElementById(id).value.trim(); }
+
 function nextPage() {
   const n = new URLSearchParams(location.search).get("next") || "index.html";
   return /^[a-z-]+\.html(\?[a-z0-9=&_-]*)?$/i.test(n) ? n : "index.html";
@@ -66,6 +142,11 @@ function showTab(which) {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll("[data-fx]").forEach(function (el) {
+    const d = FX[el.dataset.fx];
+    el.textContent = d[LANG] || d.en;
+  });
+
   document.getElementById("tabLogin").addEventListener("click", function () { showTab("login"); });
   document.getElementById("tabReg").addEventListener("click", function () { showTab("register"); });
 
@@ -75,7 +156,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const d = await api("/login", {
         method: "POST",
         body: JSON.stringify({
-          contact: document.getElementById("lContact").value,
+          contact: val("lContact"),
           password: document.getElementById("lPass").value
         })
       });
@@ -88,21 +169,64 @@ document.addEventListener("DOMContentLoaded", function () {
 
   document.getElementById("regForm").addEventListener("submit", async function (e) {
     e.preventDefault();
+
+    const file = document.getElementById("rCv").files[0];
+    if (!file) {
+      say("Please upload your CV.", false);
+      return;
+    }
+    const ext = file.name.split(".").pop().toLowerCase();
+    if (["pdf", "doc", "docx"].indexOf(ext) === -1) {
+      say("CV must be PDF, DOC or DOCX.", false);
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      say("CV must be 2 MB or smaller.", false);
+      return;
+    }
+
+    let d;
     try {
-      const d = await api("/register", {
+      d = await api("/register", {
         method: "POST",
         body: JSON.stringify({
-          fullName: document.getElementById("rFull").value,
-          username: document.getElementById("rUser").value,
-          contact: document.getElementById("rContact").value,
-          country: document.getElementById("rCountry").value,
-          password: document.getElementById("rPass").value
+          fullName: val("rFull"),
+          username: val("rUser"),
+          contact: val("rContact"),
+          country: val("rCountry"),
+          password: document.getElementById("rPass").value,
+          education: val("rEdu"),
+          fieldOfStudy: val("rField"),
+          school: val("rSchool"),
+          gradYear: val("rYear"),
+          cgpa: val("rCgpa"),
+          cgpaScale: val("rScale"),
+          skills: val("rSkills"),
+          experienceYears: val("rExpYears"),
+          experience: val("rExp"),
+          languages: val("rLang")
         })
       });
-      saveSession(d.token, d.user);
-      location.href = nextPage();
     } catch (err) {
       say(err.message, false);
+      return;
+    }
+
+    saveSession(d.token, d.user);
+
+    const fd = new FormData();
+    fd.append("cv", file);
+    try {
+      const res = await fetch(API + "/me/cv", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + d.token },
+        body: fd
+      });
+      const data = await res.json().catch(function () { return {}; });
+      if (!res.ok) throw new Error(data.message || "CV upload failed.");
+      location.href = nextPage();
+    } catch (err) {
+      say("Your account was created, but the CV did not upload: " + err.message + " Open My CV in the top bar to upload it again.", false);
     }
   });
 });
