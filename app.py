@@ -126,34 +126,81 @@ def to_int(value, low, high):
     return n if low <= n <= high else None
 
 
+def clean_skills(items):
+    """A list of up to 20 skills."""
+    if not isinstance(items, list):
+        return []
+    return [str(x).strip()[:60] for x in items[:20] if str(x).strip()]
+
+
+def clean_languages(items):
+    """A list of up to 6 language names."""
+    if not isinstance(items, list):
+        return []
+    return [str(x).strip()[:40] for x in items[:6] if str(x).strip()]
+
+
+def clean_education(items):
+    """A list of up to 5 education entries. Each needs a level and a field of study."""
+    if not isinstance(items, list):
+        return []
+    out = []
+    for item in items[:5]:
+        if not isinstance(item, dict):
+            continue
+        level = str(item.get("level") or "")
+        field = str(item.get("field") or "").strip()[:120]
+        if level not in EDUCATION_LEVELS or not field:
+            continue
+        scale = str(item.get("cgpaScale") or "4")
+        if scale not in CGPA_SCALES:
+            scale = "4"
+        cgpa = None
+        try:
+            num = float(item.get("cgpa"))
+            if 0 <= num <= float(scale):
+                cgpa = round(num, 2)
+        except (TypeError, ValueError):
+            pass
+        out.append({
+            "level": level,
+            "field": field,
+            "school": str(item.get("school") or "").strip()[:150],
+            "gradYear": to_int(item.get("gradYear"), 1950, 2035),
+            "cgpa": cgpa,
+            "cgpaScale": scale,
+        })
+    return out
+
+
+def clean_experience(items):
+    """A list of up to 10 work experiences."""
+    if not isinstance(items, list):
+        return []
+    out = []
+    for item in items[:10]:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "").strip()[:120]
+        org = str(item.get("organization") or "").strip()[:150]
+        if not title and not org:
+            continue
+        out.append({
+            "title": title,
+            "organization": org,
+            "years": to_int(item.get("years"), 0, 60),
+            "details": str(item.get("details") or "").strip()[:500],
+        })
+    return out
+
+
 def build_profile(d):
     """Clean the academic and work details sent at registration."""
-    def text(key, limit):
-        return str(d.get(key) or "").strip()[:limit]
-
-    scale = str(d.get("cgpaScale") or "4")
-    if scale not in CGPA_SCALES:
-        scale = "4"
-    cgpa = None
-    try:
-        value = float(d.get("cgpa"))
-        if 0 <= value <= float(scale):
-            cgpa = round(value, 2)
-    except (TypeError, ValueError):
-        pass
-
-    edu = str(d.get("education") or "")
     return {
-        "education": edu if edu in EDUCATION_LEVELS else "",
-        "fieldOfStudy": text("fieldOfStudy", 120),
-        "school": text("school", 150),
-        "gradYear": to_int(d.get("gradYear"), 1950, 2035),
-        "cgpa": cgpa,
-        "cgpaScale": scale,
-        "skills": text("skills", 300),
-        "experienceYears": to_int(d.get("experienceYears"), 0, 60),
-        "experience": text("experience", 2000),
-        "languages": text("languages", 200),
+        "skills": clean_skills(d.get("skills")),
+        "education": clean_education(d.get("education")),
+        "languages": clean_languages(d.get("languages")),
+        "experience": clean_experience(d.get("experience")),
     }
 
 
@@ -235,9 +282,11 @@ def register():
         return err("Password must be at least 8 characters.", "Jechi iccitii 8 ol ta'uu qaba.")
 
     profile = build_profile(d)
-    if not profile["education"] or not profile["fieldOfStudy"] or not profile["skills"]:
-        return err("Please fill education level, field of study and skills.",
-                   "Maaloo sadarkaa barnootaa, gosa barnootaa fi dandeetii guuti.")
+    if not profile["skills"]:
+        return err("Add at least one skill.", "Dandeetii tokko yoo ta'e galchi.")
+    if not profile["education"]:
+        return err("Add at least one education entry with a field of study.",
+                   "Barnoota tokko, gosa barnootaa wajjin galchi.")
 
     if q("SELECT id FROM users WHERE username = %s OR contact = %s", (username, contact), one=True):
         return err("Username or contact is already used.",
