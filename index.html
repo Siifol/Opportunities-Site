@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Explore verified jobs, scholarships, fellowships, internships, grants and training opportunities worldwide.">
+<meta name="theme-color" content="#123b63">
+<title>Opportunities.com — Jobs, Scholarships & More</title>
+<style>
+:root{--navy:#123b63;--blue:#1769aa;--ink:#17212b;--muted:#64748b;--paper:#f4f7fb;--white:#fff;--line:#dbe4ee}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--paper);color:var(--ink);line-height:1.55}
+.wrap{max-width:1100px;margin:auto}header{background:linear-gradient(120deg,#123b63,#1769aa);color:white;padding:20px 16px 30px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.brand{font-size:1.25rem;font-weight:850;letter-spacing:-.03em}.brand span{color:#b9e2ff}button,input,select{font:inherit}button,.btn{border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:700;text-decoration:none;display:inline-block}.lang{background:white;color:var(--navy)}.hero{padding:28px 0 10px}.hero h1{font-size:clamp(2rem,6vw,3.2rem);line-height:1.08;max-width:760px;margin:8px 0 12px}.hero p{max-width:720px;color:#e5f2ff;margin:0 0 18px}.searchbox{display:grid;grid-template-columns:2fr 1fr auto;gap:10px;background:white;padding:10px;border-radius:14px;box-shadow:0 12px 28px #001a3322}input,select{min-width:0;width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink)}.searchbox button{background:var(--navy);color:white}
+main{padding:24px 16px 44px}.categories{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 24px}.catbtn{background:white;border:1px solid var(--line);color:var(--navy);padding:16px 10px;text-align:center;border-radius:13px}.catbtn span{display:block;font-size:1.6rem}.catbtn.active{background:#dceafe;border-color:#1769aa;box-shadow:inset 0 0 0 1px #1769aa}.sectionhead{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap}.sectionhead h2{margin:0}.muted{color:var(--muted);font-size:.92rem}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:16px}.item{background:white;border:1px solid var(--line);border-radius:15px;padding:18px;box-shadow:0 4px 14px #17324d08}.item h3{margin:8px 0 3px;font-size:1.12rem}.company{font-weight:700}.chips{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.chip{font-size:.78rem;background:#eaf2fb;color:#214e78;padding:4px 8px;border-radius:999px}.item p{margin:8px 0}.foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}.apply{background:var(--blue);color:white}.notice{background:#fff7e6;border:1px solid #f0d8a6;padding:14px;border-radius:12px;margin-top:22px;color:#664a12}.info{background:white;border:1px solid var(--line);border-radius:15px;padding:18px;margin-top:18px}.info h2{margin-top:0}.empty{background:white;border:1px dashed var(--line);padding:25px;border-radius:12px;text-align:center;grid-column:1/-1}footer{padding:24px 16px;background:#102c47;color:#e1edf8}footer a{color:#c4e4ff}.footlinks{display:flex;gap:16px;flex-wrap:wrap}.small{font-size:.86rem}.hidden{display:none}
+@media(max-width:700px){.searchbox{grid-template-columns:1fr}.categories{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+ <div class="top"><div class="brand">🌍 Opportunities<span>.com</span></div><button class="lang" id="langBtn" type="button">አማርኛ</button></div>
+ <div class="hero"><p id="eyebrow">JOBS • SCHOLARSHIPS • FELLOWSHIPS • GRANTS</p><h1 id="heroTitle">Find your next opportunity.</h1><p id="heroText">Explore job vacancies, scholarships and more from around the world. Verify each opportunity and use official application links.</p>
+ <div class="searchbox"><input id="searchInput" type="search" placeholder="Search title, country or organization" aria-label="Search opportunities"><select id="countrySelect" aria-label="Filter by country"><option value="">All locations</option><option>Worldwide / Remote</option><option>Ethiopia</option><option>United States</option><option>United Kingdom</option><option>Canada</option><option>Germany</option><option>Australia</option></select><button id="searchBtn" type="button">Search</button></div>
+ </div></div></header>
+<main class="wrap">
+ <nav class="categories" aria-label="Opportunity categories">
+  <button class="catbtn active" data-cat="All" type="button"><span>🌐</span><strong id="catAll">All opportunities</strong></button>
+  <button class="catbtn" data-cat="Jobs" type="button"><span>💼</span><strong id="catJobs">Jobs</strong></button>
+  <button class="catbtn" data-cat="Scholarships" type="button"><span>🎓</span><strong id="catScholarships">Scholarships</strong></button>
+  <button class="catbtn" data-cat="Other" type="button"><span>🔬</span><strong id="catOther">Fellowships & more</strong></button>
+ </nav>
+ <div class="sectionhead"><div><h2 id="latestTitle">Latest opportunities</h2><div class="muted" id="resultCount" aria-live="polite"></div></div><div class="muted" id="demoLabel">Fictional demo listings — not real openings</div></div>
+ <div class="grid" id="items"></div>
+ <div class="notice"><strong id="safetyTitle">Stay safe:</strong> <span id="safetyText">All listings on this starter page are fictional examples. Verify real opportunities through the official organization website. Never pay unofficial recruitment or scholarship fees.</span></div>
+ <section class="info"><h2 id="applyTitle">Applications</h2><p id="applyText">This prototype does not collect applications or personal information. For real listings, add the verified official application link. We will configure a secure form service or backend before accepting applications directly.</p></section>
+ <section class="info"><h2 id="aboutTitle">About Opportunities.com</h2><p id="aboutText">An independent information platform for jobs, scholarships, fellowships, internships, grants and training opportunities worldwide. A listing does not imply endorsement or guarantee selection.</p><p class="muted small" id="contactText">Before public launch, add a public contact email, privacy notice and process for reporting suspicious listings.</p></section>
+</main>
+<footer><div class="wrap"><div class="footlinks"><a href="#about" id="footerAbout">About</a><a href="#privacy" id="footerPrivacy">Privacy notice</a><a href="#report" id="footerReport">Report a suspicious listing</a></div><p class="small" id="footerText"></p></div></footer>
+<script>
+const data=[
+{id:1,kind:"Jobs",title:"Junior Web Developer (Demo)",org:"Example Technology Ltd. (fictional)",place:"Worldwide / Remote",category:"Technology",type:"Remote job",summary:"Fictional example for testing. Replace with a verified open role and official employer application link.",deadline:"Demo only",funding:""},
+{id:2,kind:"Jobs",title:"Graduate Civil Engineer (Demo)",org:"Example Infrastructure Group (fictional)",place:"Ethiopia",category:"Engineering",type:"Full-time job",summary:"Sample content only. Confirm the employer, eligibility and closing date before publishing a real vacancy.",deadline:"Demo only",funding:""},
+{id:3,kind:"Jobs",title:"Programme Assistant (Demo)",org:"Example Development Organization (fictional)",place:"Worldwide / Remote",category:"NGO & Development",type:"Full-time job",summary:"Illustrative NGO-style listing, not a real opening. Add a direct official source when replacing this example.",deadline:"Demo only",funding:""},
+{id:4,kind:"Scholarships",title:"International Master's Scholarship (Demo)",org:"Example University (fictional)",place:"United Kingdom",category:"Master's degree",type:"Scholarship",summary:"Fictional example. A real listing must explain eligible nationalities, degree level, coverage and application steps.",deadline:"Demo only",funding:"Coverage not verified"},
+{id:5,kind:"Scholarships",title:"Undergraduate Excellence Award (Demo)",org:"Example University (fictional)",place:"Canada",category:"Undergraduate",type:"Scholarship",summary:"Sample listing only. Replace with official details and state whether tuition, living costs or travel are covered.",deadline:"Demo only",funding:"Coverage not verified"},
+{id:6,kind:"Scholarships",title:"Doctoral Research Funding (Demo)",org:"Example Research Institute (fictional)",place:"Germany",category:"PhD / Research",type:"Scholarship",summary:"Fictional demonstration. Verify funding amount, eligibility, supervisor requirements and closing date.",deadline:"Demo only",funding:"Coverage not verified"},
+{id:7,kind:"Other",title:"Early-Career Research Fellowship (Demo)",org:"Example Research Centre (fictional)",place:"Australia",category:"Research",type:"Fellowship",summary:"Fictional fellowship example. Check the official host institution page for requirements and funding.",deadline:"Demo only",funding:"Not verified"},
+{id:8,kind:"Other",title:"International Graduate Internship (Demo)",org:"Example Organization (fictional)",place:"Worldwide / Remote",category:"Internship",type:"Internship",summary:"Illustrative listing. Remote internships can still have country, work authorization or time-zone restrictions.",deadline:"Demo only",funding:"Not verified"}
+];
+let lang="en",active="All";
+const tr={
+en:{eyebrow:"JOBS • SCHOLARSHIPS • FELLOWSHIPS • GRANTS",heroTitle:"Find your next opportunity.",heroText:"Explore job vacancies, scholarships and more from around the world. Verify each opportunity and use official application links.",search:"Search title, country or organization",allLoc:"All locations",searchBtn:"Search",all:"All opportunities",jobs:"Jobs",scholarships:"Scholarships",other:"Fellowships & more",latest:"Latest opportunities",demo:"Fictional demo listings — not real openings",safetyTitle:"Stay safe:",safetyText:"All listings on this starter page are fictional examples. Verify real opportunities through the official organization website. Never pay unofficial recruitment or scholarship fees.",applyTitle:"Applications",applyText:"This prototype does not collect applications or personal information. For real listings, add the verified official application link. We will configure a secure form service or backend before accepting applications directly.",aboutTitle:"About Opportunities.com",aboutText:"An independent information platform for jobs, scholarships, fellowships, internships, grants and training opportunities worldwide. A listing does not imply endorsement or guarantee selection.",contactText:"Before public launch, add a public contact email, privacy notice and process for reporting suspicious listings.",about:"About",privacy:"Privacy notice",report:"Report a suspicious listing",count:n=>`${n} demo opportunity/opportunities shown`,details:"View details",none:"No matching opportunities. Try another search or category.",footer:"© "+new Date().getFullYear()+" Opportunities.com. Verify each listing independently. A listing does not guarantee employment, funding or selection.",noLink:"Official application link not added"},
+am:{eyebrow:"ሥራዎች • ስኮላርሺፖች • ፌሎውሺፖች • ድጋፎች",heroTitle:"ቀጣዩን ዕድልዎን ያግኙ።",heroText:"ከዓለም ዙሪያ የሥራ፣ የስኮላርሺፕ እና ሌሎች ዕድሎችን ይመልከቱ። እያንዳንዱን ዕድል ያረጋግጡ እና ይፋዊ የማመልከቻ አገናኞችን ይጠቀሙ።",search:"የዕድል ስም፣ አገር ወይም ድርጅት ፈልግ",allLoc:"ሁሉም ቦታዎች",searchBtn:"ፈልግ",all:"ሁሉም ዕድሎች",jobs:"ሥራዎች",scholarships:"ስኮላርሺፖች",other:"ፌሎውሺፕ እና ሌሎች",latest:"የቅርብ ጊዜ ዕድሎች",demo:"የሙከራ ምሳሌዎች ናቸው፤ እውነተኛ ክፍት ዕድሎች አይደሉም",safetyTitle:"ደህንነትዎን ይጠብቁ፦",safetyText:"በዚህ የመጀመሪያ ገጽ ላይ ያሉት ዕድሎች የሙከራ ምሳሌዎች ብቻ ናቸው። በይፋዊ ድረ ገጽ ያረጋግጡ። ሕጋዊ ያልሆነ የቅጥር ወይም የስኮላርሺፕ ክፍያ አይክፈሉ።",applyTitle:"ማመልከቻዎች",applyText:"ይህ የሙከራ ድረ ገጽ ማመልከቻዎችን ወይም የግል መረጃን አይሰበስብም። ለእውነተኛ ዕድሎች የተረጋገጠ ይፋዊ አገናኝ ያክሉ። በቀጥታ ማመልከቻ ከመቀበላችን በፊት ደህንነቱ የተጠበቀ አገልግሎት እናዘጋጃለን።",aboutTitle:"ስለ Opportunities.com",aboutText:"ለሥራዎች፣ ስኮላርሺፖች፣ ፌሎውሺፖች፣ ልምምዶች፣ ድጋፎች እና ሥልጠናዎች መረጃ የሚያጋራ ገለልተኛ መድረክ ነው። ዝርዝር መታየት የምርጫ ወይም የቅጥር ዋስትና አይደለም።",contactText:"ከመጀመርዎ በፊት የሥራ ኢሜይል፣ የግላዊነት ማስታወቂያ እና አጠራጣሪ ዕድሎችን ሪፖርት የሚያደርጉበት መንገድ ያክሉ።",about:"ስለ እኛ",privacy:"የግላዊነት ማስታወቂያ",report:"አጠራጣሪ ዕድል ሪፖርት ያድርጉ",count:n=>`${n} የሙከራ ዕድል(ዎች) ታይተዋል`,details:"ዝርዝር ይመልከቱ",none:"የሚዛመድ ዕድል አልተገኘም። ሌላ ቃል ወይም ምድብ ይሞክሩ።",footer:"© "+new Date().getFullYear()+" Opportunities.com። እያንዳንዱን ዕድል በራስዎ ያረጋግጡ። ዝርዝር መታየት ቅጥርን ወይም የገንዘብ ድጋፍን አያረጋግጥም።",noLink:"ይፋዊ የማመልከቻ አገናኝ አልተጨመረም"}
+};
+function render(){
+ const t=tr[lang],q=document.getElementById("searchInput").value.trim().toLowerCase(),loc=document.getElementById("countrySelect").value;
+ const list=data.filter(x=>(active==="All"||x.kind===active||(active==="Other"&&x.kind==="Other"))&&(!loc||x.place.includes(loc))&&(!q||[x.title,x.org,x.place,x.category,x.type,x.summary,x.kind].join(" ").toLowerCase().includes(q)));
+ document.getElementById("resultCount").textContent=t.count(list.length);
+ const root=document.getElementById("items");root.innerHTML="";
+ if(!list.length){root.innerHTML='<div class="empty"></div>';root.firstChild.textContent=t.none;return}
+ list.forEach(x=>{
+  const card=document.createElement("article");card.className="item";
+  card.innerHTML='<span class="chip demo"></span><h3></h3><div class="company"></div><div class="chips"><span class="chip kind"></span><span class="chip cat"></span><span class="chip type"></span></div><p class="summary"></p><p class="muted place"></p><p class="muted deadline"></p><p class="muted funding"></p><div class="foot"><span class="muted small"></span><a class="btn apply" href="#"></a></div>';
+  card.querySelector(".demo").textContent=lang==="en"?"DEMO":"ምሳሌ";
+  card.querySelector("h3").textContent=x.title;card.querySelector(".company").textContent=x.org;
+  card.querySelector(".kind").textContent=x.kind==="Other"?(lang==="en"?"Other opportunity":"ሌላ ዕድል"):t[x.kind.toLowerCase()];
+  card.querySelector(".cat").textContent=x.category;card.querySelector(".type").textContent=x.type;
+  card.querySelector(".summary").textContent=x.summary;
+  card.querySelector(".place").textContent=(lang==="en"?"Location: ":"ቦታ፦ ")+x.place;
+  card.querySelector(".deadline").textContent=(lang==="en"?"Deadline: ":"የመጨረሻ ቀን፦ ")+x.deadline;
+  card.querySelector(".funding").textContent=x.funding?(lang==="en"?"Funding: ":"የድጋፍ መጠን፦ ")+x.funding:"";
+  card.querySelector(".foot .muted").textContent=lang==="en"?"Verify from official source":"በይፋዊ ምንጭ ያረጋግጡ";
+  const a=card.querySelector("a");a.textContent=t.details;a.href="#";a.addEventListener("click",e=>{e.preventDefault();alert(t.noLink)});
+  root.appendChild(card);
+ });
+}
+function setLang(){
+ const t=tr[lang];document.documentElement.lang=lang==="am"?"am":"en";
+ document.getElementById("langBtn").textContent=lang==="en"?"አማርኛ":"English";
+ const ids={eyebrow:"eyebrow",heroTitle:"heroTitle",heroText:"heroText",searchBtn:"searchBtn",catAll:"all",catJobs:"jobs",catScholarships:"scholarships",catOther:"other",latestTitle:"latest",demoLabel:"demo",safetyTitle:"safetyTitle",safetyText:"safetyText",applyTitle:"applyTitle",applyText:"applyText",aboutTitle:"aboutTitle",aboutText:"aboutText",contactText:"contactText",footerAbout:"about",footerPrivacy:"privacy",footerReport:"report",footerText:"footer"};
+ Object.entries(ids).forEach(([id,key])=>document.getElementById(id).textContent=t[key]);
+ document.getElementById("searchInput").placeholder=t.search;document.getElementById("countrySelect").options[0].textContent=t.allLoc;render();
+}
+document.getElementById("langBtn").addEventListener("click",()=>{lang=lang==="en"?"am":"en";setLang()});
+document.querySelectorAll(".catbtn").forEach(b=>b.addEventListener("click",()=>{active=b.dataset.cat;document.querySelectorAll(".catbtn").forEach(x=>x.classList.toggle("active",x===b));render()}));
+document.getElementById("searchBtn").addEventListener("click",render);document.getElementById("searchInput").addEventListener("input",render);document.getElementById("countrySelect").addEventListener("change",render);
+setLang();
+</script>
+</body></html>
