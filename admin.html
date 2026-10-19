@@ -26,6 +26,12 @@
 <script>
 let OPPS = [];
 
+const METHOD_NAMES = {
+  site: "Through this site",
+  link: "Official link",
+  inperson: "Email or in person"
+};
+
 function v(id) { return document.getElementById(id).value.trim(); }
 
 function showMsg(el, text, ok) {
@@ -53,9 +59,17 @@ document.addEventListener("DOMContentLoaded", function () {
       '<label>Organization</label><input id="fOrg">' +
       '<label>Country</label><input id="fCountry" value="Ethiopia">' +
       '<label>Deadline</label><input id="fDeadline" type="date">' +
-      '<label>Description (English)</label><textarea id="fDesc" rows="4"></textarea>' +
-      '<label>Official application link</label><input id="fUrl" type="url" placeholder="https://">' +
-      '<label>Hiring company email (applications are sent here)</label>' +
+      '<label>Description (English) — include any email or in-person instructions here</label>' +
+      '<textarea id="fDesc" rows="4"></textarea>' +
+      '<label>How applicants apply *</label>' +
+      '<select id="fMethod">' +
+        '<option value="site">Through this site (sent to the hiring email below)</option>' +
+        '<option value="link">Official link (applicants go to the company website)</option>' +
+        '<option value="inperson">Email or in person (see the description)</option>' +
+      '</select>' +
+      '<label>Official application link (needed for "Official link")</label>' +
+      '<input id="fUrl" type="url" placeholder="https://">' +
+      '<label>Hiring company email (needed for "Through this site")</label>' +
       '<input id="fHire" type="email" placeholder="hr@company.com">' +
       '<div class="actions">' +
         '<button type="submit" id="saveBtn">Save opportunity</button>' +
@@ -84,6 +98,7 @@ function opportunityBody() {
     country: v("fCountry"),
     deadline: v("fDeadline"),
     descriptionEn: v("fDesc"),
+    applyMethod: v("fMethod"),
     applyUrl: v("fUrl"),
     hiringEmail: v("fHire")
   });
@@ -113,6 +128,7 @@ function resetForm() {
   document.getElementById("oppForm").reset();
   document.getElementById("fId").value = "";
   document.getElementById("fCountry").value = "Ethiopia";
+  document.getElementById("fMethod").value = "site";
   document.getElementById("formTitle").textContent = "Add opportunity";
   document.getElementById("saveBtn").textContent = "Save opportunity";
   document.getElementById("cancelBtn").hidden = true;
@@ -130,6 +146,7 @@ function editOpp(id) {
   document.getElementById("fCountry").value = o.country || "Ethiopia";
   document.getElementById("fDeadline").value = o.deadline || "";
   document.getElementById("fDesc").value = o.description_en || "";
+  document.getElementById("fMethod").value = o.apply_method || "site";
   document.getElementById("fUrl").value = o.apply_url || "";
   document.getElementById("fHire").value = o.hiring_email || "";
   document.getElementById("formTitle").textContent = "Edit opportunity";
@@ -150,6 +167,7 @@ async function loadOpps() {
     }
     box.innerHTML = OPPS.map(function (o) {
       const live = !!o.published;
+      const method = o.apply_method || "site";
       return '<div class="card">' +
         '<span class="chip">' + esc(o.type) + '</span> ' +
         '<span class="chip ' + (live ? "ok-chip" : "hid-chip") + '">' + (live ? "Published" : "Hidden") + '</span>' +
@@ -157,9 +175,12 @@ async function loadOpps() {
         '<p class="muted">' + esc(o.organization || "-") + ' · ' + esc(o.country || "") +
           ' · Deadline: ' + esc(o.deadline || "-") +
           ' · Applications: ' + esc(o.application_count) + '</p>' +
-        '<p class="muted">' + (o.hiring_email
-          ? 'Applications go to: ' + esc(o.hiring_email)
-          : '<b>No hiring email: applications are only saved here</b>') + '</p>' +
+        '<p class="muted">How applicants apply: <b>' + esc(METHOD_NAMES[method] || method) + '</b></p>' +
+        '<p class="muted">' + (method === "site"
+          ? (o.hiring_email
+              ? 'Applications go to: ' + esc(o.hiring_email)
+              : '<b>No hiring email set</b>')
+          : '') + '</p>' +
         '<div class="actions">' +
           '<button onclick="editOpp(' + Number(o.id) + ')">Edit</button>' +
           '<button class="ghost" onclick="toggleOpp(' + Number(o.id) + ', ' + (live ? "false" : "true") + ')">' +
