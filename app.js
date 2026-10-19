@@ -174,15 +174,19 @@ function renderHeader() {
   const u = getUser();
   const loggedIn = !!getToken() && !!u;
   const nextLabel = LANG === "en" ? "አማርኛ" : LANG === "am" ? "Afaan Oromoo" : "English";
+  const accountIcon = loggedIn
+    ? '<a class="btn small acc-icon" href="account.html" title="My account" aria-label="My account">👤</a>'
+    : '';
   top.innerHTML =
     '<div class="bar">' +
-      '<a class="brand" href="index.html">🌍 Opportunities<span>.com</span></a>' +
+      '<div class="left" style="display:flex;align-items:center;gap:10px;">' +
+        accountIcon +
+        '<a class="brand" href="index.html">🌍 Opportunities<span>.com</span></a>' +
+      '</div>' +
       '<div class="nav">' +
         '<button class="lang" onclick="cycleLang()">' + nextLabel + '</button>' +
         (loggedIn && u.role === "admin" ? '<a href="admin.html">Admin</a>' : '') +
-        (loggedIn
-          ? '<a class="btn small" href="account.html" title="My account" aria-label="My account">👤</a>'
-          : '<a class="btn small" href="auth.html">' + t("login") + '</a>') +
+        (loggedIn ? '' : '<a class="btn small" href="auth.html">' + t("login") + '</a>') +
       '</div>' +
     '</div>';
 }
@@ -200,6 +204,7 @@ function renderHeader() {
       flex-wrap: wrap; padding: 14px 16px; max-width: 1100px; margin: 0 auto; }
     .brand { color: #fff; font-weight: 800; font-size: 1.2rem; text-decoration: none; }
     .brand span { color: #b9e2ff; }
+    .acc-icon { background: #fff; color: #123b63; font-size: 1.1rem; padding: 4px 10px; }
     .nav { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     .nav a { color: #fff; text-decoration: none; font-weight: 600; }
     button, .btn { font: inherit; border: 0; border-radius: 10px; padding: 10px 14px; cursor: pointer;
