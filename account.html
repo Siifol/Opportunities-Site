@@ -3,11 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Contact — Opportunities.com</title>
+<title>My account — Opportunities.com</title>
 <style>
-  .contact { line-height: 1.6; }
-  .contact h2 { margin-top: 24px; font-size: 1.15rem; }
-  .contact .email { color: #64748b; word-break: break-all; }
+  .acc-row { display: flex; justify-content: space-between; gap: 12px;
+    padding: 12px 0; border-bottom: 1px solid #e2e8f0; }
+  .acc-row span:first-child { color: #64748b; }
+  .acc-row span:last-child { font-weight: 600; text-align: right; word-break: break-word; }
+  .acc-actions { display: grid; gap: 10px; margin-top: 18px; }
 </style>
 <script src="app.js"></script>
 </head>
@@ -16,19 +18,58 @@
 
 <main>
   <a class="back" href="index.html">← Back</a>
-  <div class="box contact">
-    <h1>Contact us</h1>
+  <div class="box">
+    <h2>My account</h2>
 
-    <p>For questions or problems with your account, email us:</p>
-    <p><a class="btn" href="mailto:opportunitieset@gmail.com">Email us</a></p>
-    <p class="email">Email address: opportunitieset@gmail.com</p>
+    <div class="acc-row"><span>Name</span><span id="accName">-</span></div>
+    <div class="acc-row"><span>Username</span><span id="accUser">-</span></div>
+    <div class="acc-row"><span>Country</span><span id="accCountry">-</span></div>
+    <div class="acc-row"><span>CV</span><span id="accCv">-</span></div>
 
-    <h2>Report a listing</h2>
-    <p>If a listing looks fake, asks for money, or is already closed, email us with the listing title and its link. We will review it.</p>
+    <div class="acc-actions">
+      <a class="btn" href="cv.html">Update CV</a>
+      <a class="btn" id="adminLink" href="admin.html" hidden>Admin page</a>
+      <button type="button" id="logoutBtn" class="ghost">Logout</button>
+    </div>
 
-    <h2>Delete my account or data</h2>
-    <p>Email us from the address on your account and ask us to delete your account and CV. We will remove them.</p>
+    <p id="accMsg" class="msg bad" hidden></p>
   </div>
 </main>
+
+<script>
+document.addEventListener("DOMContentLoaded", async function () {
+  if (!getToken()) {
+    location.replace("auth.html?next=account.html");
+    return;
+  }
+
+  document.getElementById("logoutBtn").addEventListener("click", function () {
+    logout();
+  });
+
+  try {
+    const me = (await api("/me")).user;
+    document.getElementById("accName").textContent = me.fullName || "-";
+    document.getElementById("accUser").textContent = me.username || "-";
+    document.getElementById("accCountry").textContent = me.country || "-";
+    if (me.role === "admin") document.getElementById("adminLink").hidden = false;
+  } catch (e) {
+    showError(e.message);
+  }
+
+  try {
+    const cv = (await api("/me/cv")).cv;
+    document.getElementById("accCv").textContent = cv ? cv.filename : "No CV yet";
+  } catch (e) {
+    document.getElementById("accCv").textContent = "-";
+  }
+});
+
+function showError(text) {
+  const m = document.getElementById("accMsg");
+  m.textContent = text;
+  m.hidden = false;
+}
+</script>
 </body>
 </html>
