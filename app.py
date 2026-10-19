@@ -26,6 +26,7 @@ GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
 
 EDUCATION_LEVELS = ("highschool", "diploma", "bachelor", "master", "phd", "other")
 CGPA_SCALES = ("4", "5", "10")
+APPLY_METHODS = ("site", "link", "inperson")
 CV_TYPES = {
     "pdf": "application/pdf",
     "doc": "application/msword",
@@ -69,6 +70,7 @@ CREATE TABLE IF NOT EXISTS applications (
 );
 ALTER TABLE users ADD COLUMN IF NOT EXISTS profile JSONB DEFAULT '{}'::jsonb;
 ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS hiring_email TEXT DEFAULT '';
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS apply_method TEXT DEFAULT 'site';
 CREATE TABLE IF NOT EXISTS cvs (
     user_id INTEGER PRIMARY KEY REFERENCES users(id),
     filename TEXT NOT NULL,
@@ -225,12 +227,21 @@ def read_opportunity(d):
     kind = d.get("type")
     title = (d.get("titleEn") or "").strip()
     hiring_email = (d.get("hiringEmail") or "").strip().lower()
+    apply_url = (d.get("applyUrl") or "").strip()
+    apply_method = (d.get("applyMethod") or "site").strip()
     if kind not in ("job", "scholarship", "other"):
         return None, err("Type must be job, scholarship or other.", "Gosi job, scholarship ykn other ta'uu qaba.")
     if not title:
         return None, err("English title is required.", "Mata-duree Ingliffaan barbaachisaa.")
+    if apply_method not in APPLY_METHODS:
+        return None, err("Choose how applicants apply.", "Akkaan iyyatan filadhu.")
     if hiring_email and not EMAIL_RE.match(hiring_email):
         return None, err("Hiring email is not valid.", "Imeelii hojjechaa sirrii miti.")
+    if apply_method == "site" and not hiring_email:
+        return None, err("Add the hiring company email, or choose another way to apply.",
+                         "Imeelii hojjechaa galchi, ykn karaa biraa filadhu.")
+    if apply_method == "link" and not apply_url:
+        return None, err("Add the official application link.", "Linkii iyyannoo mirkanaa'e galchi.")
     values = (
         kind,
         title,
@@ -240,8 +251,9 @@ def read_opportunity(d):
         (d.get("organization") or "").strip(),
         (d.get("country") or "Ethiopia").strip(),
         d.get("deadline") or None,
-        (d.get("applyUrl") or "").strip(),
+        apply_url,
         hiring_email,
+        apply_method,
     )
     return values, None
 
@@ -477,7 +489,7 @@ def get_opportunity(oid):
     return jsonify({"status": "success", "item": public_opportunity(row)})
 
 
-# ---------- Applying (login and CV required) ----------
+# ---------- Applying (login and CV required, site method only) ----------
 
 @app.post("/opportunities/<int:oid>/apply")
 @login_required
@@ -487,6 +499,9 @@ def apply(oid):
     opp = q("SELECT * FROM opportunities WHERE id = %s AND published = TRUE", (oid,), one=True)
     if not opp:
         return err("Not found.", "Hin argamne.", 404)
+    if opp["apply_method"] != "site":
+        return err("For this listing, apply through the official link or as the listing describes.",
+                   "Kun karaa linkii mirkanaa'e ykn akkuma ibsa keessatti jiru iyyadhu.")
     if not cv_info(g.user["id"]):
         return err("Upload your CV first, then apply.",
                    "Dura CV kee upload godhi, ergaa iyyadhu.")
@@ -496,14 +511,13 @@ def apply(oid):
 
     # Send to the hiring company first. If sending fails, nothing is recorded,
     # so the applicant can try again.
-    if opp["hiring_email"]:
-        cv = q("SELECT filename, mimetype, data FROM cvs WHERE user_id = %s", (g.user["id"],), one=True)
-        try:
-            send_application(opp, g.user, cv, note)
-        except Exception:
-            app.logger.exception("Could not email application %s", oid)
-            return err("We could not send your application right now. Please try again in a few minutes.",
-                       "Amma iyyaticha ergu hin danda'amne. Daqiiqaa muraasa booda irra deebi'ii yaali.", 503)
+    cv = q("SELECT filename, mimetype, data FROM cvs WHERE user_id = %s", (g.user["id"],), one=True)
+    try:
+        send_application(opp, g.user, cv, note)
+    except Exception:
+        app.logger.exception("Could not email application %s", oid)
+        return err("We could not send your application right now. Please try again in a few minutes.",
+                   "Amma iyyaticha ergu hin danda'amne. Daqiiqaa muraasa booda irra deebi'ii yaali.", 503)
 
     q("INSERT INTO applications (user_id, opportunity_id, cover_note) VALUES (%s, %s, %s)",
       (g.user["id"], oid, note), commit=True)
@@ -539,8 +553,9 @@ def add_opportunity():
     if error:
         return error
     row = q("""INSERT INTO opportunities (type, title_en, title_am, title_om, description_en,
-                                          organization, country, deadline, apply_url, hiring_email)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                                          organization, country, deadline, apply_url,
+                                          hiring_email, apply_method)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
             values, one=True, commit=True)
     return jsonify({"status": "success", "item": clean(row)}), 201
 
@@ -553,7 +568,8 @@ def update_opportunity(oid):
         return error
     row = q("""UPDATE opportunities
                SET type = %s, title_en = %s, title_am = %s, title_om = %s, description_en = %s,
-                   organization = %s, country = %s, deadline = %s, apply_url = %s, hiring_email = %s
+                   organization = %s, country = %s, deadline = %s, apply_url = %s,
+                   hiring_email = %s, apply_method = %s
                WHERE id = %s RETURNING *""",
             values + (oid,), one=True, commit=True)
     if not row:
