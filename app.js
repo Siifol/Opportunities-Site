@@ -250,3 +250,12 @@ document.addEventListener("DOMContentLoaded", function () {
   renderHeader();
   fillCountries();
 });
+document.addEventListener("DOMContentLoaded", function () {
+  const f = document.createElement("footer");
+  f.className = "site-footer";
+  f.innerHTML =
+    '<style>.site-footer{text-align:center;padding:20px 16px;color:#64748b;font-size:0.9rem}' +
+    '.site-footer a{color:#1769aa;margin:0 6px;font-weight:600}</style>' +
+    '<a href="about.html">About</a> · <a href="contact.html">Contact</a> · <a href="privacy.html">Privacy</a>';
+  document.body.appendChild(f);
+});
