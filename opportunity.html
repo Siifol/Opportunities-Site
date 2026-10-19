@@ -10,6 +10,7 @@
   .cv-choice input { width: auto; margin: 0; }
   .cv-box { display: grid; gap: 8px; }
   .how { background: #f4f9ff; border: 1px solid #cfe3f7; border-radius: 10px; padding: 12px; }
+  .how p { margin: 0 0 10px; }
 </style>
 <script src="app.js"></script>
 </head>
@@ -74,9 +75,18 @@ function showApplyBlock(o) {
 
 async function showApply(id) {
   const area = document.getElementById("applyArea");
+
+  // New or logged-out visitors (for example, from a Telegram link):
+  // register or log in, then come back to this listing.
   if (!getToken()) {
     const next = encodeURIComponent("opportunity.html?id=" + id);
-    area.innerHTML = '<a class="btn" href="auth.html?next=' + next + '">' + t("loginToApply") + '</a>';
+    area.innerHTML =
+      '<div class="how">' +
+        '<p><strong>New here?</strong> Create a free account to apply. You add your skills, education, and CV once, and you can use them for every listing.</p>' +
+        '<a class="btn" href="auth.html?next=' + next + '">Create account to apply</a>' +
+        '<p class="muted" style="margin-top:12px">Already registered? ' +
+          '<a href="auth.html?next=' + next + '">Log in here</a></p>' +
+      '</div>';
     return;
   }
 
