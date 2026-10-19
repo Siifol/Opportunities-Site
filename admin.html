@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Admin — Opportunities.com</title>
+<style>
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  button.ghost { background: #fff; color: #123b63; border: 1px solid #b9cbe0; }
+  button.danger { background: #8a1c1c; }
+  .ok-chip { background: #e8f7ec; color: #1b5e20; }
+  .hid-chip { background: #fdecea; color: #8a1c1c; }
+  .card h3 { margin: 6px 0 2px; }
+  .section-gap { margin-top: 28px; }
+</style>
 <script src="app.js"></script>
 </head>
 <body>
@@ -15,12 +24,15 @@
 </main>
 
 <script>
+let OPPS = [];
+
 function v(id) { return document.getElementById(id).value.trim(); }
 
-const LEVEL_NAMES = {
-  highschool: "High school", diploma: "Diploma / TVET", bachelor: "Bachelor's",
-  master: "Master's", phd: "PhD", other: "Other"
-};
+function showMsg(el, text, ok) {
+  el.textContent = text;
+  el.className = "msg " + (ok ? "ok" : "bad");
+  el.hidden = false;
+}
 
 document.addEventListener("DOMContentLoaded", function () {
   const u = getUser();
@@ -30,8 +42,9 @@ document.addEventListener("DOMContentLoaded", function () {
     return;
   }
   box.innerHTML =
-    '<h2>Add opportunity</h2>' +
-    '<form id="addForm" class="form">' +
+    '<h2 id="formTitle">Add opportunity</h2>' +
+    '<form id="oppForm" class="form">' +
+      '<input type="hidden" id="fId">' +
       '<label>Type</label>' +
       '<select id="fType"><option value="job">Job</option><option value="scholarship">Scholarship</option><option value="other">Other</option></select>' +
       '<label>Title (English) *</label><input id="fTitle" required>' +
@@ -42,49 +55,147 @@ document.addEventListener("DOMContentLoaded", function () {
       '<label>Deadline</label><input id="fDeadline" type="date">' +
       '<label>Description (English)</label><textarea id="fDesc" rows="4"></textarea>' +
       '<label>Official application link</label><input id="fUrl" type="url" placeholder="https://">' +
-      '<button type="submit">Save opportunity</button>' +
+      '<div class="actions">' +
+        '<button type="submit" id="saveBtn">Save opportunity</button>' +
+        '<button type="button" id="cancelBtn" class="ghost" hidden>Cancel edit</button>' +
+      '</div>' +
       '<p id="aMsg" class="msg" hidden></p>' +
     '</form>' +
-    '<h2>Applications</h2>' +
+    '<h2 class="section-gap">Opportunities</h2>' +
+    '<div id="oppList"><p class="muted">Loading...</p></div>' +
+    '<h2 class="section-gap">Applications</h2>' +
     '<div id="apps"><p class="muted">Loading...</p></div>';
 
-  document.getElementById("addForm").addEventListener("submit", addOpp);
+  document.getElementById("oppForm").addEventListener("submit", saveOpp);
+  document.getElementById("cancelBtn").addEventListener("click", resetForm);
+  loadOpps();
   loadApps();
 });
 
-async function addOpp(e) {
+function opportunityBody() {
+  return JSON.stringify({
+    type: v("fType"),
+    titleEn: v("fTitle"),
+    titleAm: v("fTitleAm"),
+    titleOm: v("fTitleOm"),
+    organization: v("fOrg"),
+    country: v("fCountry"),
+    deadline: v("fDeadline"),
+    descriptionEn: v("fDesc"),
+    applyUrl: v("fUrl")
+  });
+}
+
+async function saveOpp(e) {
   e.preventDefault();
   const m = document.getElementById("aMsg");
+  const id = v("fId");
   try {
-    await api("/admin/opportunities", {
-      method: "POST",
-      body: JSON.stringify({
-        type: v("fType"),
-        titleEn: v("fTitle"),
-        titleAm: v("fTitleAm"),
-        titleOm: v("fTitleOm"),
-        organization: v("fOrg"),
-        country: v("fCountry"),
-        deadline: v("fDeadline"),
-        descriptionEn: v("fDesc"),
-        applyUrl: v("fUrl")
-      })
-    });
-    m.textContent = "Saved.";
-    m.className = "msg ok";
-    e.target.reset();
-    document.getElementById("fCountry").value = "Ethiopia";
+    if (id) {
+      await api("/admin/opportunities/" + id, { method: "PUT", body: opportunityBody() });
+      showMsg(m, "Updated.", true);
+    } else {
+      await api("/admin/opportunities", { method: "POST", body: opportunityBody() });
+      showMsg(m, "Saved.", true);
+    }
+    resetForm();
+    document.getElementById("aMsg").hidden = false;
+    loadOpps();
   } catch (err) {
-    m.textContent = err.message;
-    m.className = "msg bad";
+    showMsg(m, err.message, false);
   }
-  m.hidden = false;
+}
+
+function resetForm() {
+  document.getElementById("oppForm").reset();
+  document.getElementById("fId").value = "";
+  document.getElementById("fCountry").value = "Ethiopia";
+  document.getElementById("formTitle").textContent = "Add opportunity";
+  document.getElementById("saveBtn").textContent = "Save opportunity";
+  document.getElementById("cancelBtn").hidden = true;
+}
+
+function editOpp(id) {
+  const o = OPPS.find(function (x) { return x.id === id; });
+  if (!o) return;
+  document.getElementById("fId").value = o.id;
+  document.getElementById("fType").value = o.type;
+  document.getElementById("fTitle").value = o.title_en || "";
+  document.getElementById("fTitleAm").value = o.title_am || "";
+  document.getElementById("fTitleOm").value = o.title_om || "";
+  document.getElementById("fOrg").value = o.organization || "";
+  document.getElementById("fCountry").value = o.country || "Ethiopia";
+  document.getElementById("fDeadline").value = o.deadline || "";
+  document.getElementById("fDesc").value = o.description_en || "";
+  document.getElementById("fUrl").value = o.apply_url || "";
+  document.getElementById("formTitle").textContent = "Edit opportunity";
+  document.getElementById("saveBtn").textContent = "Update opportunity";
+  document.getElementById("cancelBtn").hidden = false;
+  document.getElementById("aMsg").hidden = true;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function loadOpps() {
+  const box = document.getElementById("oppList");
+  try {
+    const data = await api("/admin/opportunities");
+    OPPS = data.items;
+    if (!OPPS.length) {
+      box.innerHTML = '<p class="muted">No opportunities yet.</p>';
+      return;
+    }
+    box.innerHTML = OPPS.map(function (o) {
+      const live = !!o.published;
+      return '<div class="card">' +
+        '<span class="chip">' + esc(o.type) + '</span> ' +
+        '<span class="chip ' + (live ? "ok-chip" : "hid-chip") + '">' + (live ? "Published" : "Hidden") + '</span>' +
+        '<h3>' + esc(o.title_en) + '</h3>' +
+        '<p class="muted">' + esc(o.organization || "-") + ' · ' + esc(o.country || "") +
+          ' · Deadline: ' + esc(o.deadline || "-") +
+          ' · Applications: ' + esc(o.application_count) + '</p>' +
+        '<div class="actions">' +
+          '<button onclick="editOpp(' + Number(o.id) + ')">Edit</button>' +
+          '<button class="ghost" onclick="toggleOpp(' + Number(o.id) + ', ' + (live ? "false" : "true") + ')">' +
+            (live ? "Hide" : "Publish") + '</button>' +
+          '<button class="danger" onclick="deleteOpp(' + Number(o.id) + ')">Delete</button>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+  } catch (err) {
+    box.innerHTML = '<p class="msg bad">' + esc(err.message) + '</p>';
+  }
+}
+
+async function toggleOpp(id, publish) {
+  try {
+    await api("/admin/opportunities/" + id + (publish ? "/publish" : "/hide"), { method: "POST" });
+    loadOpps();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function deleteOpp(id) {
+  if (!confirm("Delete this opportunity and all its applications? This cannot be undone.")) return;
+  try {
+    await api("/admin/opportunities/" + id, { method: "DELETE" });
+    if (String(document.getElementById("fId").value) === String(id)) resetForm();
+    loadOpps();
+    loadApps();
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
 function listText(value) {
   if (typeof value === "string") return value ? esc(value) : "-";
   return Array.isArray(value) && value.length ? value.map(esc).join(", ") : "-";
 }
+
+const LEVEL_NAMES = {
+  highschool: "High school", diploma: "Diploma / TVET", bachelor: "Bachelor's",
+  master: "Master's", phd: "PhD", other: "Other"
+};
 
 function educationHtml(list) {
   if (!Array.isArray(list) || !list.length) return '<p class="muted">No education added.</p>';
@@ -123,14 +234,28 @@ async function loadApps() {
         '<p><b>Languages:</b> ' + listText(p.languages) + '</p>' +
         '<p><b>Work experience:</b></p>' + experienceHtml(p.experience) +
         (a.cover_note ? '<p>' + esc(a.cover_note) + '</p>' : '') +
-        (a.cv_filename
-          ? '<p><button onclick="downloadCv(' + Number(a.user_id) + ', this)" data-name="' + esc(a.cv_filename) + '">Download CV</button></p>'
-          : '<p class="muted">No CV uploaded.</p>') +
+        '<div class="actions">' +
+          (a.cv_filename
+            ? '<button onclick="downloadCv(' + Number(a.user_id) + ', this)" data-name="' + esc(a.cv_filename) + '">Download CV</button>'
+            : '<span class="muted">No CV uploaded.</span>') +
+          '<button class="danger" onclick="deleteApp(' + Number(a.id) + ')">Delete</button>' +
+        '</div>' +
         '<small class="muted">' + esc(a.created_at) + '</small>' +
-        '</div>';
+      '</div>';
     }).join("");
   } catch (err) {
     box.innerHTML = '<p class="msg bad">' + esc(err.message) + '</p>';
+  }
+}
+
+async function deleteApp(id) {
+  if (!confirm("Delete this application?")) return;
+  try {
+    await api("/admin/applications/" + id, { method: "DELETE" });
+    loadApps();
+    loadOpps();
+  } catch (err) {
+    alert(err.message);
   }
 }
 
