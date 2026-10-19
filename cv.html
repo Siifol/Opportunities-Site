@@ -4,20 +4,23 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>My CV — Opportunities.com</title>
+<style>
+  .cv-note { color: #64748b; margin: 0 0 12px; }
+</style>
 <script src="app.js"></script>
 </head>
 <body>
 <header id="top"></header>
 
 <main>
-  <a class="back" href="index.html">← Back</a>
+  <a class="back" id="backLink" href="index.html">← Back</a>
   <div class="box">
     <h2>My CV</h2>
-    <p class="muted">Upload your CV once and use it to apply for every opportunity. PDF, DOC or DOCX, up to 2 MB. Uploading a new file replaces the old one.</p>
-    <p id="current" class="muted">Loading...</p>
+    <p class="cv-note">Upload your CV once and use it to apply for any opportunity. PDF, DOC or DOCX, up to 2 MB.</p>
+    <p class="cv-note">Current CV: <strong id="cvName">Loading...</strong></p>
 
     <form id="cvForm" class="form">
-      <label>Choose CV file</label>
+      <label>Choose a new CV</label>
       <input id="cvFile" type="file" accept=".pdf,.doc,.docx" required>
       <button type="submit">Upload CV</button>
       <p id="cvMsg" class="msg" hidden></p>
@@ -26,43 +29,47 @@
 </main>
 
 <script>
+// If the applicant came from a listing, we send them back there after upload.
+// Only links to a listing on this site are allowed.
+const params = new URLSearchParams(location.search);
+const rawNext = params.get("next") || "";
+const NEXT = /^opportunity\.html\?id=\d+$/.test(rawNext) ? rawNext : "";
+
 document.addEventListener("DOMContentLoaded", function () {
   if (!getToken()) {
-    location.href = "auth.html?next=cv.html";
+    const back = "cv.html" + (NEXT ? "?next=" + encodeURIComponent(NEXT) : "");
+    location.replace("auth.html?next=" + encodeURIComponent(back));
     return;
   }
-  showCurrent();
-  document.getElementById("cvForm").addEventListener("submit", upload);
+  if (NEXT) document.getElementById("backLink").href = NEXT;
+  loadCurrent();
+  document.getElementById("cvForm").addEventListener("submit", uploadCv);
 });
 
-async function showCurrent() {
-  const el = document.getElementById("current");
+async function loadCurrent() {
   try {
-    const d = await api("/me/cv");
-    if (d.cv) {
-      el.innerHTML = 'Current CV: <strong>' + esc(d.cv.filename) + '</strong><br>Uploaded: ' + esc(d.cv.uploaded_at);
-    } else {
-      el.textContent = "You have not uploaded a CV yet. You need one before you can apply.";
-    }
-  } catch (err) {
-    el.textContent = err.message;
+    const data = await api("/me/cv");
+    document.getElementById("cvName").textContent = data.cv ? data.cv.filename : "No CV yet";
+  } catch (e) {
+    document.getElementById("cvName").textContent = "Could not load";
   }
 }
 
-async function upload(e) {
+async function uploadCv(e) {
   e.preventDefault();
   const m = document.getElementById("cvMsg");
-  const file = document.getElementById("cvFile").files[0];
-  if (!file) return;
-  if (file.size > 2 * 1024 * 1024) {
-    m.textContent = "CV must be 2 MB or smaller.";
-    m.className = "msg bad";
-    m.hidden = false;
-    return;
-  }
-  const fd = new FormData();
-  fd.append("cv", file);
+  const input = document.getElementById("cvFile");
+  const file = input.files[0];
+  m.hidden = true;
+
   try {
+    if (!file) throw new Error("Please choose a CV file.");
+    const ext = file.name.split(".").pop().toLowerCase();
+    if (["pdf", "doc", "docx"].indexOf(ext) === -1) throw new Error("CV must be PDF, DOC or DOCX.");
+    if (file.size > 2 * 1024 * 1024) throw new Error("CV must be 2 MB or smaller.");
+
+    const fd = new FormData();
+    fd.append("cv", file);
     const res = await fetch(API + "/me/cv", {
       method: "POST",
       headers: { Authorization: "Bearer " + getToken() },
@@ -70,10 +77,17 @@ async function upload(e) {
     });
     const data = await res.json().catch(function () { return {}; });
     if (!res.ok) throw new Error(data.message || "Upload failed.");
+
+    // Came from a listing: go back so the applicant can apply now
+    if (NEXT) {
+      location.href = NEXT;
+      return;
+    }
+
+    document.getElementById("cvName").textContent = file.name;
+    input.value = "";
     m.textContent = "CV saved.";
     m.className = "msg ok";
-    e.target.reset();
-    showCurrent();
   } catch (err) {
     m.textContent = err.message;
     m.className = "msg bad";
