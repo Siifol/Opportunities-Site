@@ -55,6 +55,8 @@ document.addEventListener("DOMContentLoaded", function () {
       '<label>Deadline</label><input id="fDeadline" type="date">' +
       '<label>Description (English)</label><textarea id="fDesc" rows="4"></textarea>' +
       '<label>Official application link</label><input id="fUrl" type="url" placeholder="https://">' +
+      '<label>Hiring company email (applications are sent here)</label>' +
+      '<input id="fHire" type="email" placeholder="hr@company.com">' +
       '<div class="actions">' +
         '<button type="submit" id="saveBtn">Save opportunity</button>' +
         '<button type="button" id="cancelBtn" class="ghost" hidden>Cancel edit</button>' +
@@ -82,7 +84,8 @@ function opportunityBody() {
     country: v("fCountry"),
     deadline: v("fDeadline"),
     descriptionEn: v("fDesc"),
-    applyUrl: v("fUrl")
+    applyUrl: v("fUrl"),
+    hiringEmail: v("fHire")
   });
 }
 
@@ -93,13 +96,13 @@ async function saveOpp(e) {
   try {
     if (id) {
       await api("/admin/opportunities/" + id, { method: "PUT", body: opportunityBody() });
-      showMsg(m, "Updated.", true);
+      resetForm();
+      showMsg(document.getElementById("aMsg"), "Updated.", true);
     } else {
       await api("/admin/opportunities", { method: "POST", body: opportunityBody() });
-      showMsg(m, "Saved.", true);
+      resetForm();
+      showMsg(document.getElementById("aMsg"), "Saved.", true);
     }
-    resetForm();
-    document.getElementById("aMsg").hidden = false;
     loadOpps();
   } catch (err) {
     showMsg(m, err.message, false);
@@ -128,6 +131,7 @@ function editOpp(id) {
   document.getElementById("fDeadline").value = o.deadline || "";
   document.getElementById("fDesc").value = o.description_en || "";
   document.getElementById("fUrl").value = o.apply_url || "";
+  document.getElementById("fHire").value = o.hiring_email || "";
   document.getElementById("formTitle").textContent = "Edit opportunity";
   document.getElementById("saveBtn").textContent = "Update opportunity";
   document.getElementById("cancelBtn").hidden = false;
@@ -153,6 +157,9 @@ async function loadOpps() {
         '<p class="muted">' + esc(o.organization || "-") + ' · ' + esc(o.country || "") +
           ' · Deadline: ' + esc(o.deadline || "-") +
           ' · Applications: ' + esc(o.application_count) + '</p>' +
+        '<p class="muted">' + (o.hiring_email
+          ? 'Applications go to: ' + esc(o.hiring_email)
+          : '<b>No hiring email: applications are only saved here</b>') + '</p>' +
         '<div class="actions">' +
           '<button onclick="editOpp(' + Number(o.id) + ')">Edit</button>' +
           '<button class="ghost" onclick="toggleOpp(' + Number(o.id) + ', ' + (live ? "false" : "true") + ')">' +
