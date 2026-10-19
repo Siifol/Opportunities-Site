@@ -204,6 +204,28 @@ def build_profile(d):
     }
 
 
+def read_opportunity(d):
+    """Check an opportunity sent by the admin page. Returns (values, error_response)."""
+    kind = d.get("type")
+    title = (d.get("titleEn") or "").strip()
+    if kind not in ("job", "scholarship", "other"):
+        return None, err("Type must be job, scholarship or other.", "Gosi job, scholarship ykn other ta'uu qaba.")
+    if not title:
+        return None, err("English title is required.", "Mata-duree Ingliffaan barbaachisaa.")
+    values = (
+        kind,
+        title,
+        (d.get("titleAm") or "").strip(),
+        (d.get("titleOm") or "").strip(),
+        (d.get("descriptionEn") or "").strip(),
+        (d.get("organization") or "").strip(),
+        (d.get("country") or "Ethiopia").strip(),
+        d.get("deadline") or None,
+        (d.get("applyUrl") or "").strip(),
+    )
+    return values, None
+
+
 def cv_info(uid):
     """Return the CV's name and upload time, or None if the user has no CV."""
     return clean(q("SELECT filename, uploaded_at FROM cvs WHERE user_id = %s", (uid,), one=True))
@@ -412,35 +434,79 @@ def my_applications():
     return jsonify({"status": "success", "items": [clean(r) for r in rows]})
 
 
-# ---------- Admin only ----------
+# ---------- Admin: opportunities ----------
+
+@app.get("/admin/opportunities")
+@admin_required
+def admin_list_opportunities():
+    """All opportunities, including hidden ones, with how many people applied."""
+    rows = q("""SELECT o.*, (SELECT COUNT(*) FROM applications a WHERE a.opportunity_id = o.id)
+                       AS application_count
+                FROM opportunities o ORDER BY o.id DESC""")
+    return jsonify({"status": "success", "items": [clean(r) for r in rows]})
+
 
 @app.post("/admin/opportunities")
 @admin_required
 def add_opportunity():
-    d = request.get_json(silent=True) or {}
-    kind = d.get("type")
-    title = (d.get("titleEn") or "").strip()
-    if kind not in ("job", "scholarship", "other"):
-        return err("Type must be job, scholarship or other.", "Gosi job, scholarship ykn other ta'uu qaba.")
-    if not title:
-        return err("English title is required.", "Mata-duree Ingliffaan barbaachisaa.")
+    values, error = read_opportunity(request.get_json(silent=True) or {})
+    if error:
+        return error
     row = q("""INSERT INTO opportunities (type, title_en, title_am, title_om, description_en,
                                           organization, country, deadline, apply_url)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
-            (kind, title, d.get("titleAm") or "", d.get("titleOm") or "",
-             d.get("descriptionEn") or "", d.get("organization") or "",
-             d.get("country") or "Ethiopia", d.get("deadline") or None,
-             d.get("applyUrl") or ""),
-            one=True, commit=True)
+            values, one=True, commit=True)
     return jsonify({"status": "success", "item": clean(row)}), 201
+
+
+@app.put("/admin/opportunities/<int:oid>")
+@admin_required
+def update_opportunity(oid):
+    values, error = read_opportunity(request.get_json(silent=True) or {})
+    if error:
+        return error
+    row = q("""UPDATE opportunities
+               SET type = %s, title_en = %s, title_am = %s, title_om = %s, description_en = %s,
+                   organization = %s, country = %s, deadline = %s, apply_url = %s
+               WHERE id = %s RETURNING *""",
+            values + (oid,), one=True, commit=True)
+    if not row:
+        return err("Not found.", "Hin argamne.", 404)
+    return jsonify({"status": "success", "item": clean(row)})
+
+
+@app.post("/admin/opportunities/<int:oid>/publish")
+@admin_required
+def publish_opportunity(oid):
+    row = q("UPDATE opportunities SET published = TRUE WHERE id = %s RETURNING id",
+            (oid,), one=True, commit=True)
+    if not row:
+        return err("Not found.", "Hin argamne.", 404)
+    return jsonify({"status": "success"})
 
 
 @app.post("/admin/opportunities/<int:oid>/hide")
 @admin_required
 def hide_opportunity(oid):
-    q("UPDATE opportunities SET published = FALSE WHERE id = %s", (oid,), commit=True)
+    row = q("UPDATE opportunities SET published = FALSE WHERE id = %s RETURNING id",
+            (oid,), one=True, commit=True)
+    if not row:
+        return err("Not found.", "Hin argamne.", 404)
     return jsonify({"status": "success"})
 
+
+@app.delete("/admin/opportunities/<int:oid>")
+@admin_required
+def delete_opportunity(oid):
+    if not q("SELECT id FROM opportunities WHERE id = %s", (oid,), one=True):
+        return err("Not found.", "Hin argamne.", 404)
+    # Remove its applications first, then the opportunity itself
+    q("DELETE FROM applications WHERE opportunity_id = %s", (oid,), commit=True)
+    q("DELETE FROM opportunities WHERE id = %s", (oid,), commit=True)
+    return jsonify({"status": "success"})
+
+
+# ---------- Admin: applications ----------
 
 @app.get("/admin/applications")
 @admin_required
@@ -453,6 +519,15 @@ def all_applications():
                 JOIN opportunities o ON o.id = a.opportunity_id
                 ORDER BY a.created_at DESC""")
     return jsonify({"status": "success", "items": [clean(r) for r in rows]})
+
+
+@app.delete("/admin/applications/<int:aid>")
+@admin_required
+def delete_application(aid):
+    row = q("DELETE FROM applications WHERE id = %s RETURNING id", (aid,), one=True, commit=True)
+    if not row:
+        return err("Not found.", "Hin argamne.", 404)
+    return jsonify({"status": "success"})
 
 
 @app.get("/admin/cv/<int:uid>")
