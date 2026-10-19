@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>My account — Opportunities.com</title>
+<title>Contact — Opportunities.com</title>
 <style>
-  .acc-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; }
-  #logoutBtn { background: #8a1c1c; }
+  .contact { line-height: 1.6; }
+  .contact h2 { margin-top: 24px; font-size: 1.15rem; }
+  .contact .email { color: #64748b; word-break: break-all; }
 </style>
 <script src="app.js"></script>
 </head>
@@ -15,37 +16,19 @@
 
 <main>
   <a class="back" href="index.html">← Back</a>
-  <div class="box" id="acc"><p class="muted">Loading...</p></div>
-</main>
+  <div class="box contact">
+    <h1>Contact us</h1>
 
-<script>
-document.addEventListener("DOMContentLoaded", async function () {
-  const box = document.getElementById("acc");
-  if (!getToken()) {
-    location.href = "auth.html?next=account.html";
-    return;
-  }
-  try {
-    const me = (await api("/me")).user;
-    const cv = (await api("/me/cv")).cv;
-    box.innerHTML =
-      '<h2>My account</h2>' +
-      '<p><b>Name:</b> ' + esc(me.fullName) + '</p>' +
-      '<p><b>Username:</b> ' + esc(me.username) + '</p>' +
-      '<p><b>Country:</b> ' + esc(me.country || "-") + '</p>' +
-      '<p><b>CV:</b> ' + (cv ? esc(cv.filename) : 'No CV uploaded yet') + '</p>' +
-      '<div class="acc-actions">' +
-        '<a class="btn" href="cv.html">Update CV</a>' +
-        (me.role === "admin" ? '<a class="btn" href="admin.html">Admin</a>' : '') +
-      '</div>' +
-      '<button id="logoutBtn" type="button">Logout</button>';
-    document.getElementById("logoutBtn").addEventListener("click", logout);
-  } catch (err) {
-    box.innerHTML =
-      '<p class="msg bad">' + esc(err.message) + '</p>' +
-      '<a class="btn" href="auth.html?next=account.html">Login</a>';
-  }
-});
-</script>
+    <p>For questions or problems with your account, email us:</p>
+    <p><a class="btn" href="mailto:opportunitieset@gmail.com">Email us</a></p>
+    <p class="email">Email address: opportunitieset@gmail.com</p>
+
+    <h2>Report a listing</h2>
+    <p>If a listing looks fake, asks for money, or is already closed, email us with the listing title and its link. We will review it.</p>
+
+    <h2>Delete my account or data</h2>
+    <p>Email us from the address on your account and ask us to delete your account and CV. We will remove them.</p>
+  </div>
+</main>
 </body>
 </html>
