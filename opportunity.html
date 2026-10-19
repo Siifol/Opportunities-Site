@@ -97,7 +97,9 @@ async function showApply(id) {
   } catch (e) {}
 
   if (!cv) {
-    area.innerHTML = '<p class="msg bad">You need a CV to apply. <a href="cv.html">Upload CV</a></p>';
+    // After uploading, the CV page sends the applicant back to this listing
+    const back = encodeURIComponent("opportunity.html?id=" + id);
+    area.innerHTML = '<p class="msg bad">You need a CV to apply. <a href="cv.html?next=' + back + '">Upload CV</a></p>';
     return;
   }
 
