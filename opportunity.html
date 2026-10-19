@@ -9,6 +9,7 @@
     border: 1px solid #dbe4ee; border-radius: 10px; cursor: pointer; font-weight: 600; }
   .cv-choice input { width: auto; margin: 0; }
   .cv-box { display: grid; gap: 8px; }
+  .how { background: #f4f9ff; border: 1px solid #cfe3f7; border-radius: 10px; padding: 12px; }
 </style>
 <script src="app.js"></script>
 </head>
@@ -39,12 +40,36 @@ async function load() {
       '<p class="org">' + esc(o.organization || "") + '</p>' +
       '<p class="muted">' + esc(o.country || "") + ' · ' + t("deadline") + ': ' + esc(o.deadline || "-") + '</p>' +
       '<p>' + esc(o.description_en || "") + '</p>' +
-      (o.apply_url ? '<p><a href="' + esc(o.apply_url) + '" target="_blank" rel="noopener">' + t("official") + '</a></p>' : '') +
       '<div id="applyArea"></div>';
-    showApply(o.id);
+    showApplyBlock(o);
   } catch (e) {
     box.innerHTML = '<p class="msg bad">' + esc(e.message) + '</p>';
   }
+}
+
+function showApplyBlock(o) {
+  const area = document.getElementById("applyArea");
+
+  // Applicants go to the official website
+  if (o.apply_method === "link") {
+    area.innerHTML =
+      '<div class="how"><p>Please apply on the official website:</p>' +
+      '<a class="btn" href="' + esc(o.apply_url) + '" target="_blank" rel="noopener">Apply on official website</a></div>';
+    return;
+  }
+
+  // Applicants apply by email or in person, as the description explains
+  if (o.apply_method === "inperson") {
+    area.innerHTML =
+      '<div class="how"><p>This employer asks applicants to apply by email or in person. ' +
+      'Please follow the instructions in the description above.</p>' +
+      (o.apply_url ? '<p><a href="' + esc(o.apply_url) + '" target="_blank" rel="noopener">Official link</a></p>' : '') +
+      '</div>';
+    return;
+  }
+
+  // Applicants apply through this site (sent to the hiring company)
+  showApply(o.id);
 }
 
 async function showApply(id) {
@@ -81,11 +106,10 @@ async function showApply(id) {
       '<p id="applyMsg" class="msg" hidden></p>' +
     '</form>';
 
-  const radios = document.querySelectorAll('input[name="cvChoice"]');
   const newFile = document.getElementById("newCv");
   const newName = document.getElementById("newCvName");
 
-  radios.forEach(function (r) {
+  document.querySelectorAll('input[name="cvChoice"]').forEach(function (r) {
     r.addEventListener("change", function () {
       const isNew = document.querySelector('input[name="cvChoice"]:checked').value === "new";
       newFile.hidden = !isNew;
