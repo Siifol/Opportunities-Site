@@ -179,13 +179,11 @@ function renderHeader() {
     : '';
   top.innerHTML =
     '<div class="bar">' +
-      '<div class="left" style="display:flex;align-items:center;gap:10px;">' +
-        accountIcon +
-        '<a class="brand" href="index.html">🌍 Opportunities<span>.com</span></a>' +
-      '</div>' +
+      '<a class="brand" href="index.html">🌍 Opportunities<span>.com</span></a>' +
       '<div class="nav">' +
         '<button class="lang" onclick="cycleLang()">' + nextLabel + '</button>' +
         (loggedIn && u.role === "admin" ? '<a href="admin.html">Admin</a>' : '') +
+        accountIcon +
         (loggedIn ? '' : '<a class="btn small" href="auth.html">' + t("login") + '</a>') +
       '</div>' +
     '</div>';
