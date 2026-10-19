@@ -1,7 +1,10 @@
 import io
 import os
 import re
+import smtplib
+import ssl
 from datetime import date, datetime
+from email.message import EmailMessage
 from functools import wraps
 
 import psycopg2
@@ -17,6 +20,10 @@ DATABASE_URL = os.environ["DATABASE_URL"]
 serializer = URLSafeTimedSerializer(os.environ.get("SECRET_KEY", "dev-only-change-me"))
 TOKEN_AGE = 60 * 60 * 24 * 30  # 30 days
 
+# Gmail account used to send applications (set on Render as environment variables)
+GMAIL_USER = os.environ.get("GMAIL_USER", "")
+GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
+
 EDUCATION_LEVELS = ("highschool", "diploma", "bachelor", "master", "phd", "other")
 CGPA_SCALES = ("4", "5", "10")
 CV_TYPES = {
@@ -25,6 +32,7 @@ CV_TYPES = {
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
 CV_MAX_BYTES = 2 * 1024 * 1024  # 2 MB
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -60,6 +68,7 @@ CREATE TABLE IF NOT EXISTS applications (
     UNIQUE (user_id, opportunity_id)
 );
 ALTER TABLE users ADD COLUMN IF NOT EXISTS profile JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS hiring_email TEXT DEFAULT '';
 CREATE TABLE IF NOT EXISTS cvs (
     user_id INTEGER PRIMARY KEY REFERENCES users(id),
     filename TEXT NOT NULL,
@@ -107,6 +116,13 @@ def clean(row):
     if row is None:
         return None
     return {k: (v.isoformat() if isinstance(v, (date, datetime)) else v) for k, v in row.items()}
+
+
+def public_opportunity(row):
+    """A listing for the public site. The hiring email is not shown to visitors."""
+    item = clean(row)
+    item.pop("hiring_email", None)
+    return item
 
 
 def err(en, om, code=400):
@@ -208,10 +224,13 @@ def read_opportunity(d):
     """Check an opportunity sent by the admin page. Returns (values, error_response)."""
     kind = d.get("type")
     title = (d.get("titleEn") or "").strip()
+    hiring_email = (d.get("hiringEmail") or "").strip().lower()
     if kind not in ("job", "scholarship", "other"):
         return None, err("Type must be job, scholarship or other.", "Gosi job, scholarship ykn other ta'uu qaba.")
     if not title:
         return None, err("English title is required.", "Mata-duree Ingliffaan barbaachisaa.")
+    if hiring_email and not EMAIL_RE.match(hiring_email):
+        return None, err("Hiring email is not valid.", "Imeelii hojjechaa sirrii miti.")
     values = (
         kind,
         title,
@@ -222,6 +241,7 @@ def read_opportunity(d):
         (d.get("country") or "Ethiopia").strip(),
         d.get("deadline") or None,
         (d.get("applyUrl") or "").strip(),
+        hiring_email,
     )
     return values, None
 
@@ -229,6 +249,59 @@ def read_opportunity(d):
 def cv_info(uid):
     """Return the CV's name and upload time, or None if the user has no CV."""
     return clean(q("SELECT filename, uploaded_at FROM cvs WHERE user_id = %s", (uid,), one=True))
+
+
+def build_application_text(opp, user, profile, note):
+    """The plain-text body of the email the hiring company receives."""
+    lines = [
+        f"New application for: {opp['title_en']}",
+        f"Organization: {opp['organization'] or '-'}",
+        "",
+        "APPLICANT",
+        f"Name: {user['full_name']}",
+        f"Contact: {user['contact']}",
+        f"Country: {user['country'] or '-'}",
+        "",
+        "SKILLS",
+        ", ".join(profile.get("skills") or []) or "-",
+        "",
+        "EDUCATION",
+    ]
+    for e in profile.get("education") or []:
+        cgpa = f" | CGPA {e.get('cgpa')} / {e.get('cgpaScale')}" if e.get("cgpa") is not None else ""
+        lines.append(f"- {e.get('level', '')}: {e.get('field', '')}, "
+                     f"{e.get('school') or '-'}, {e.get('gradYear') or '-'}{cgpa}")
+    lines += ["", "LANGUAGES", ", ".join(profile.get("languages") or []) or "-", "", "WORK EXPERIENCE"]
+    experience = profile.get("experience") or []
+    for x in experience:
+        years = x.get("years") if x.get("years") is not None else "-"
+        lines.append(f"- {x.get('title') or '-'} at {x.get('organization') or '-'} ({years} yrs)")
+        if x.get("details"):
+            lines.append(f"  {x['details']}")
+    if not experience:
+        lines.append("-")
+    lines += ["", "COVER NOTE", note or "-", "", "The applicant's CV is attached."]
+    return "\n".join(lines)
+
+
+def send_application(opp, user, cv, note):
+    """Email the application to the hiring company. Raises an error if it fails."""
+    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
+        raise RuntimeError("Email is not configured on the server.")
+    msg = EmailMessage()
+    msg["Subject"] = f"Application: {opp['title_en']} - {user['full_name']}".replace("\n", " ")
+    msg["From"] = f"Opportunities.com <{GMAIL_USER}>"
+    msg["To"] = opp["hiring_email"]
+    if "@" in (user["contact"] or ""):
+        msg["Reply-To"] = user["contact"]
+    msg.set_content(build_application_text(opp, user, user.get("profile") or {}, note))
+    if cv:
+        maintype, subtype = cv["mimetype"].split("/", 1)
+        msg.add_attachment(bytes(cv["data"]), maintype=maintype, subtype=subtype, filename=cv["filename"])
+    context = ssl.create_default_context()
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=30) as server:
+        server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+        server.send_message(msg)
 
 
 def current_user():
@@ -393,7 +466,7 @@ def list_opportunities():
         params += [f"%{search}%", f"%{search}%"]
     sql += " ORDER BY deadline NULLS LAST, id DESC"
     rows = q(sql, tuple(params))
-    return jsonify({"status": "success", "items": [clean(r) for r in rows]})
+    return jsonify({"status": "success", "items": [public_opportunity(r) for r in rows]})
 
 
 @app.get("/opportunities/<int:oid>")
@@ -401,7 +474,7 @@ def get_opportunity(oid):
     row = q("SELECT * FROM opportunities WHERE id = %s AND published = TRUE", (oid,), one=True)
     if not row:
         return err("Not found.", "Hin argamne.", 404)
-    return jsonify({"status": "success", "item": clean(row)})
+    return jsonify({"status": "success", "item": public_opportunity(row)})
 
 
 # ---------- Applying (login and CV required) ----------
@@ -411,7 +484,8 @@ def get_opportunity(oid):
 def apply(oid):
     d = request.get_json(silent=True) or {}
     note = (d.get("coverNote") or "").strip()[:2000]
-    if not q("SELECT id FROM opportunities WHERE id = %s AND published = TRUE", (oid,), one=True):
+    opp = q("SELECT * FROM opportunities WHERE id = %s AND published = TRUE", (oid,), one=True)
+    if not opp:
         return err("Not found.", "Hin argamne.", 404)
     if not cv_info(g.user["id"]):
         return err("Upload your CV first, then apply.",
@@ -419,6 +493,18 @@ def apply(oid):
     if q("SELECT id FROM applications WHERE user_id = %s AND opportunity_id = %s",
          (g.user["id"], oid), one=True):
         return err("You already applied.", "Dursuun kana irratti galmaa'eera.", 409)
+
+    # Send to the hiring company first. If sending fails, nothing is recorded,
+    # so the applicant can try again.
+    if opp["hiring_email"]:
+        cv = q("SELECT filename, mimetype, data FROM cvs WHERE user_id = %s", (g.user["id"],), one=True)
+        try:
+            send_application(opp, g.user, cv, note)
+        except Exception:
+            app.logger.exception("Could not email application %s", oid)
+            return err("We could not send your application right now. Please try again in a few minutes.",
+                       "Amma iyyaticha ergu hin danda'amne. Daqiiqaa muraasa booda irra deebi'ii yaali.", 503)
+
     q("INSERT INTO applications (user_id, opportunity_id, cover_note) VALUES (%s, %s, %s)",
       (g.user["id"], oid, note), commit=True)
     return jsonify({"status": "success"}), 201
@@ -453,8 +539,8 @@ def add_opportunity():
     if error:
         return error
     row = q("""INSERT INTO opportunities (type, title_en, title_am, title_om, description_en,
-                                          organization, country, deadline, apply_url)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                                          organization, country, deadline, apply_url, hiring_email)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
             values, one=True, commit=True)
     return jsonify({"status": "success", "item": clean(row)}), 201
 
@@ -467,7 +553,7 @@ def update_opportunity(oid):
         return error
     row = q("""UPDATE opportunities
                SET type = %s, title_en = %s, title_am = %s, title_om = %s, description_en = %s,
-                   organization = %s, country = %s, deadline = %s, apply_url = %s
+                   organization = %s, country = %s, deadline = %s, apply_url = %s, hiring_email = %s
                WHERE id = %s RETURNING *""",
             values + (oid,), one=True, commit=True)
     if not row:
