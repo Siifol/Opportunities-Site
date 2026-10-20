@@ -27,6 +27,7 @@ GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
 EDUCATION_LEVELS = ("highschool", "diploma", "bachelor", "master", "phd", "other")
 CGPA_SCALES = ("4", "5", "10")
 APPLY_METHODS = ("site", "link", "inperson")
+WORK_MODES = ("onsite", "remote", "hybrid")
 CV_TYPES = {
     "pdf": "application/pdf",
     "doc": "application/msword",
@@ -71,6 +72,8 @@ CREATE TABLE IF NOT EXISTS applications (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS profile JSONB DEFAULT '{}'::jsonb;
 ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS hiring_email TEXT DEFAULT '';
 ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS apply_method TEXT DEFAULT 'site';
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS work_mode TEXT DEFAULT 'onsite';
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS location TEXT DEFAULT '';
 CREATE TABLE IF NOT EXISTS cvs (
     user_id INTEGER PRIMARY KEY REFERENCES users(id),
     filename TEXT NOT NULL,
@@ -229,12 +232,20 @@ def read_opportunity(d):
     hiring_email = (d.get("hiringEmail") or "").strip().lower()
     apply_url = (d.get("applyUrl") or "").strip()
     apply_method = (d.get("applyMethod") or "site").strip()
+    work_mode = (d.get("workMode") or "onsite").strip()
+    location = (d.get("location") or "").strip()[:150]
     if kind not in ("job", "scholarship", "other"):
         return None, err("Type must be job, scholarship or other.", "Gosi job, scholarship ykn other ta'uu qaba.")
     if not title:
         return None, err("English title is required.", "Mata-duree Ingliffaan barbaachisaa.")
     if apply_method not in APPLY_METHODS:
         return None, err("Choose how applicants apply.", "Akkaan iyyatan filadhu.")
+    if work_mode not in WORK_MODES:
+        return None, err("Choose the work mode: onsite, remote or hybrid.",
+                         "Akkaa hojii filadhu: onsite, remote ykn hybrid.")
+    if work_mode in ("onsite", "hybrid") and not location:
+        return None, err("Enter the city or place of work for onsite or hybrid jobs.",
+                         "Magaala ykn bakka hojii galchi.")
     if hiring_email and not EMAIL_RE.match(hiring_email):
         return None, err("Hiring email is not valid.", "Imeelii hojjechaa sirrii miti.")
     if apply_method == "site" and not hiring_email:
@@ -254,6 +265,8 @@ def read_opportunity(d):
         apply_url,
         hiring_email,
         apply_method,
+        work_mode,
+        location,
     )
     return values, None
 
@@ -464,6 +477,7 @@ def upload_my_cv():
 def list_opportunities():
     kind = request.args.get("type", "")
     country = request.args.get("country", "")
+    mode = request.args.get("mode", "")
     search = request.args.get("q", "").strip()
     sql = "SELECT * FROM opportunities WHERE published = TRUE"
     params = []
@@ -473,9 +487,12 @@ def list_opportunities():
     if country:
         sql += " AND country = %s"
         params.append(country)
+    if mode in WORK_MODES:
+        sql += " AND work_mode = %s"
+        params.append(mode)
     if search:
-        sql += " AND (title_en ILIKE %s OR organization ILIKE %s)"
-        params += [f"%{search}%", f"%{search}%"]
+        sql += " AND (title_en ILIKE %s OR organization ILIKE %s OR location ILIKE %s)"
+        params += [f"%{search}%", f"%{search}%", f"%{search}%"]
     sql += " ORDER BY deadline NULLS LAST, id DESC"
     rows = q(sql, tuple(params))
     return jsonify({"status": "success", "items": [public_opportunity(r) for r in rows]})
@@ -554,8 +571,8 @@ def add_opportunity():
         return error
     row = q("""INSERT INTO opportunities (type, title_en, title_am, title_om, description_en,
                                           organization, country, deadline, apply_url,
-                                          hiring_email, apply_method)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                                          hiring_email, apply_method, work_mode, location)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
             values, one=True, commit=True)
     return jsonify({"status": "success", "item": clean(row)}), 201
 
@@ -569,7 +586,7 @@ def update_opportunity(oid):
     row = q("""UPDATE opportunities
                SET type = %s, title_en = %s, title_am = %s, title_om = %s, description_en = %s,
                    organization = %s, country = %s, deadline = %s, apply_url = %s,
-                   hiring_email = %s, apply_method = %s
+                   hiring_email = %s, apply_method = %s, work_mode = %s, location = %s
                WHERE id = %s RETURNING *""",
             values + (oid,), one=True, commit=True)
     if not row:
