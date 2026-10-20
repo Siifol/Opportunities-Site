@@ -28,6 +28,7 @@ EDUCATION_LEVELS = ("highschool", "diploma", "bachelor", "master", "phd", "other
 CGPA_SCALES = ("4", "5", "10")
 APPLY_METHODS = ("site", "link", "inperson")
 WORK_MODES = ("onsite", "remote", "hybrid")
+OPP_EDU_LEVELS = ("any", "highschool", "diploma", "bachelor", "master", "phd")
 CV_TYPES = {
     "pdf": "application/pdf",
     "doc": "application/msword",
@@ -74,6 +75,9 @@ ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS hiring_email TEXT DEFAULT '';
 ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS apply_method TEXT DEFAULT 'site';
 ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS work_mode TEXT DEFAULT 'onsite';
 ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS location TEXT DEFAULT '';
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS salary TEXT DEFAULT '';
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS requirements TEXT DEFAULT '';
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS education_level TEXT DEFAULT 'any';
 CREATE TABLE IF NOT EXISTS cvs (
     user_id INTEGER PRIMARY KEY REFERENCES users(id),
     filename TEXT NOT NULL,
@@ -234,6 +238,9 @@ def read_opportunity(d):
     apply_method = (d.get("applyMethod") or "site").strip()
     work_mode = (d.get("workMode") or "onsite").strip()
     location = (d.get("location") or "").strip()[:150]
+    salary = (d.get("salary") or "").strip()[:150]
+    requirements = (d.get("requirements") or "").strip()[:1500]
+    education_level = (d.get("educationLevel") or "any").strip()
     if kind not in ("job", "scholarship", "other"):
         return None, err("Type must be job, scholarship or other.", "Gosi job, scholarship ykn other ta'uu qaba.")
     if not title:
@@ -243,6 +250,8 @@ def read_opportunity(d):
     if work_mode not in WORK_MODES:
         return None, err("Choose the work mode: onsite, remote or hybrid.",
                          "Akkaa hojii filadhu: onsite, remote ykn hybrid.")
+    if education_level not in OPP_EDU_LEVELS:
+        return None, err("Choose an education level.", "Sadarkaa barnootaa filadhu.")
     if work_mode in ("onsite", "hybrid") and not location:
         return None, err("Enter the city or place of work for onsite or hybrid jobs.",
                          "Magaala ykn bakka hojii galchi.")
@@ -267,6 +276,9 @@ def read_opportunity(d):
         apply_method,
         work_mode,
         location,
+        salary,
+        requirements,
+        education_level,
     )
     return values, None
 
@@ -571,8 +583,9 @@ def add_opportunity():
         return error
     row = q("""INSERT INTO opportunities (type, title_en, title_am, title_om, description_en,
                                           organization, country, deadline, apply_url,
-                                          hiring_email, apply_method, work_mode, location)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                                          hiring_email, apply_method, work_mode, location,
+                                          salary, requirements, education_level)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
             values, one=True, commit=True)
     return jsonify({"status": "success", "item": clean(row)}), 201
 
@@ -586,7 +599,8 @@ def update_opportunity(oid):
     row = q("""UPDATE opportunities
                SET type = %s, title_en = %s, title_am = %s, title_om = %s, description_en = %s,
                    organization = %s, country = %s, deadline = %s, apply_url = %s,
-                   hiring_email = %s, apply_method = %s, work_mode = %s, location = %s
+                   hiring_email = %s, apply_method = %s, work_mode = %s, location = %s,
+                   salary = %s, requirements = %s, education_level = %s
                WHERE id = %s RETURNING *""",
             values + (oid,), one=True, commit=True)
     if not row:
