@@ -11,6 +11,7 @@
   .cv-box { display: grid; gap: 8px; }
   .how { background: #f4f9ff; border: 1px solid #cfe3f7; border-radius: 10px; padding: 12px; }
   .how p { margin: 0 0 10px; }
+  .where { font-weight: 600; color: #123b63; }
 </style>
 <script src="app.js"></script>
 </head>
@@ -23,6 +24,12 @@
 </main>
 
 <script>
+const WORK_LABEL = {
+  onsite: "Onsite job",
+  hybrid: "Hybrid (office and remote)",
+  remote: "Remote job"
+};
+
 document.addEventListener("DOMContentLoaded", load);
 
 async function load() {
@@ -35,10 +42,13 @@ async function load() {
   try {
     const data = await api("/opportunities/" + id);
     const o = data.item;
+    const work = o.work_mode || "onsite";
     box.innerHTML =
       '<span class="chip">' + esc(t(o.type)) + '</span>' +
       '<h2>' + esc(titleOf(o)) + '</h2>' +
       '<p class="org">' + esc(o.organization || "") + '</p>' +
+      '<p class="where">' + esc(WORK_LABEL[work] || work) +
+        (o.location ? ' · ' + esc(o.location) : '') + '</p>' +
       '<p class="muted">' + esc(o.country || "") + ' · ' + t("deadline") + ': ' + esc(o.deadline || "-") + '</p>' +
       '<p>' + esc(o.description_en || "") + '</p>' +
       '<div id="applyArea"></div>';
