@@ -12,6 +12,8 @@
   .how { background: #f4f9ff; border: 1px solid #cfe3f7; border-radius: 10px; padding: 12px; }
   .how p { margin: 0 0 10px; }
   .where { font-weight: 600; color: #123b63; }
+  .facts { margin: 6px 0; font-weight: 600; }
+  .reqs { margin: 8px 0 14px; padding-left: 20px; }
 </style>
 <script src="app.js"></script>
 </head>
@@ -30,6 +32,15 @@ const WORK_LABEL = {
   remote: "Remote job"
 };
 
+const EDU_LABEL = {
+  any: "Any level",
+  highschool: "High school",
+  diploma: "Diploma / TVET",
+  bachelor: "Bachelor's",
+  master: "Master's",
+  phd: "PhD"
+};
+
 document.addEventListener("DOMContentLoaded", load);
 
 async function load() {
@@ -43,6 +54,15 @@ async function load() {
     const data = await api("/opportunities/" + id);
     const o = data.item;
     const work = o.work_mode || "onsite";
+    const reqs = (o.requirements || "").split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+
+    let facts = '<p class="facts">🎓 ' + esc(EDU_LABEL[o.education_level || "any"] || "Any level") + '</p>';
+    if (o.salary) facts += '<p class="facts">💰 ' + esc(o.salary) + '</p>';
+    if (reqs.length) {
+      facts += '<p><b>Requirements:</b></p><ul class="reqs">' +
+        reqs.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join("") + '</ul>';
+    }
+
     box.innerHTML =
       '<span class="chip">' + esc(t(o.type)) + '</span>' +
       '<h2>' + esc(titleOf(o)) + '</h2>' +
@@ -50,6 +70,7 @@ async function load() {
       '<p class="where">' + esc(WORK_LABEL[work] || work) +
         (o.location ? ' · ' + esc(o.location) : '') + '</p>' +
       '<p class="muted">' + esc(o.country || "") + ' · ' + t("deadline") + ': ' + esc(o.deadline || "-") + '</p>' +
+      facts +
       '<p>' + esc(o.description_en || "") + '</p>' +
       '<div id="applyArea"></div>';
     showApplyBlock(o);
