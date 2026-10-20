@@ -32,6 +32,12 @@ const METHOD_NAMES = {
   inperson: "Email or in person"
 };
 
+const WORK_NAMES = {
+  onsite: "Onsite",
+  hybrid: "Hybrid",
+  remote: "Remote"
+};
+
 function v(id) { return document.getElementById(id).value.trim(); }
 
 function showMsg(el, text, ok) {
@@ -58,6 +64,14 @@ document.addEventListener("DOMContentLoaded", function () {
       '<label>Title (Afaan Oromoo)</label><input id="fTitleOm">' +
       '<label>Organization</label><input id="fOrg">' +
       '<label>Country</label><input id="fCountry" value="Ethiopia">' +
+      '<label>Work mode *</label>' +
+      '<select id="fWork">' +
+        '<option value="onsite">Onsite (work at a place)</option>' +
+        '<option value="hybrid">Hybrid (mix of office and remote)</option>' +
+        '<option value="remote">Remote (work from anywhere)</option>' +
+      '</select>' +
+      '<label>City or place of work (required for onsite and hybrid)</label>' +
+      '<input id="fLoc" placeholder="e.g. Addis Ababa, Bole">' +
       '<label>Deadline</label><input id="fDeadline" type="date">' +
       '<label>Description (English) — include any email or in-person instructions here</label>' +
       '<textarea id="fDesc" rows="4"></textarea>' +
@@ -96,6 +110,8 @@ function opportunityBody() {
     titleOm: v("fTitleOm"),
     organization: v("fOrg"),
     country: v("fCountry"),
+    workMode: v("fWork"),
+    location: v("fLoc"),
     deadline: v("fDeadline"),
     descriptionEn: v("fDesc"),
     applyMethod: v("fMethod"),
@@ -128,6 +144,7 @@ function resetForm() {
   document.getElementById("oppForm").reset();
   document.getElementById("fId").value = "";
   document.getElementById("fCountry").value = "Ethiopia";
+  document.getElementById("fWork").value = "onsite";
   document.getElementById("fMethod").value = "site";
   document.getElementById("formTitle").textContent = "Add opportunity";
   document.getElementById("saveBtn").textContent = "Save opportunity";
@@ -144,6 +161,8 @@ function editOpp(id) {
   document.getElementById("fTitleOm").value = o.title_om || "";
   document.getElementById("fOrg").value = o.organization || "";
   document.getElementById("fCountry").value = o.country || "Ethiopia";
+  document.getElementById("fWork").value = o.work_mode || "onsite";
+  document.getElementById("fLoc").value = o.location || "";
   document.getElementById("fDeadline").value = o.deadline || "";
   document.getElementById("fDesc").value = o.description_en || "";
   document.getElementById("fMethod").value = o.apply_method || "site";
@@ -168,11 +187,14 @@ async function loadOpps() {
     box.innerHTML = OPPS.map(function (o) {
       const live = !!o.published;
       const method = o.apply_method || "site";
+      const work = o.work_mode || "onsite";
       return '<div class="card">' +
         '<span class="chip">' + esc(o.type) + '</span> ' +
+        '<span class="chip">' + esc(WORK_NAMES[work] || work) + '</span> ' +
         '<span class="chip ' + (live ? "ok-chip" : "hid-chip") + '">' + (live ? "Published" : "Hidden") + '</span>' +
         '<h3>' + esc(o.title_en) + '</h3>' +
         '<p class="muted">' + esc(o.organization || "-") + ' · ' + esc(o.country || "") +
+          (o.location ? ' · ' + esc(o.location) : '') +
           ' · Deadline: ' + esc(o.deadline || "-") +
           ' · Applications: ' + esc(o.application_count) + '</p>' +
         '<p class="muted">How applicants apply: <b>' + esc(METHOD_NAMES[method] || method) + '</b></p>' +
