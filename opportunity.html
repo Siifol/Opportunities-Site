@@ -58,11 +58,27 @@ async function load() {
   }
 }
 
+// Shown to visitors who are not logged in: log in first, then come back to this listing
+function loginPrompt(id) {
+  const next = encodeURIComponent("opportunity.html?id=" + id);
+  return '<div class="how">' +
+    '<p>Log in to apply for this opportunity.</p>' +
+    '<a class="btn" href="auth.html?next=' + next + '">Login to apply</a>' +
+    '<p class="muted" style="margin-top:12px">New here? ' +
+      '<a href="auth.html?next=' + next + '">Create a free account</a>. ' +
+      'You add your skills, education, and CV once, and you can use them for every listing.</p>' +
+  '</div>';
+}
+
 function showApplyBlock(o) {
   const area = document.getElementById("applyArea");
 
-  // Applicants go to the official website
+  // Applicants go to the official website, but must log in first
   if (o.apply_method === "link") {
+    if (!getToken()) {
+      area.innerHTML = loginPrompt(o.id);
+      return;
+    }
     area.innerHTML =
       '<div class="how"><p>Please apply on the official website:</p>' +
       '<a class="btn" href="' + esc(o.apply_url) + '" target="_blank" rel="noopener">Apply on official website</a></div>';
@@ -88,15 +104,7 @@ async function showApply(id) {
 
   // Logged-out visitors: log in, or create an account, then come back to this listing
   if (!getToken()) {
-    const next = encodeURIComponent("opportunity.html?id=" + id);
-    area.innerHTML =
-      '<div class="how">' +
-        '<p>Log in to apply for this opportunity.</p>' +
-        '<a class="btn" href="auth.html?next=' + next + '">Login to apply</a>' +
-        '<p class="muted" style="margin-top:12px">New here? ' +
-          '<a href="auth.html?next=' + next + '">Create a free account</a>. ' +
-          'You add your skills, education, and CV once, and you can use them for every listing.</p>' +
-      '</div>';
+    area.innerHTML = loginPrompt(id);
     return;
   }
 
