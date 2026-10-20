@@ -38,6 +38,15 @@ const WORK_NAMES = {
   remote: "Remote"
 };
 
+const EDU_NAMES = {
+  any: "Any level",
+  highschool: "High school",
+  diploma: "Diploma / TVET",
+  bachelor: "Bachelor's",
+  master: "Master's",
+  phd: "PhD"
+};
+
 function v(id) { return document.getElementById(id).value.trim(); }
 
 function showMsg(el, text, ok) {
@@ -72,8 +81,21 @@ document.addEventListener("DOMContentLoaded", function () {
       '</select>' +
       '<label>City or place of work (required for onsite and hybrid)</label>' +
       '<input id="fLoc" placeholder="e.g. Addis Ababa, Bole">' +
+      '<label>Education level *</label>' +
+      '<select id="fEdu">' +
+        '<option value="any">Any level</option>' +
+        '<option value="highschool">High school</option>' +
+        '<option value="diploma">Diploma / TVET</option>' +
+        '<option value="bachelor">Bachelor&#39;s</option>' +
+        '<option value="master">Master&#39;s</option>' +
+        '<option value="phd">PhD</option>' +
+      '</select>' +
+      '<label>Salary (optional)</label>' +
+      '<input id="fSalary" placeholder="e.g. 8,000 ETB per month, or Negotiable">' +
+      '<label>Requirements (one per line)</label>' +
+      '<textarea id="fReq" rows="4" placeholder="Bachelor&#39;s degree in Accounting&#10;3 years of experience"></textarea>' +
       '<label>Deadline</label><input id="fDeadline" type="date">' +
-      '<label>Description (English) — include any email or in-person instructions here</label>' +
+      '<label>Description (English) — a short summary works best, include any email or in-person instructions here</label>' +
       '<textarea id="fDesc" rows="4"></textarea>' +
       '<label>How applicants apply *</label>' +
       '<select id="fMethod">' +
@@ -112,6 +134,9 @@ function opportunityBody() {
     country: v("fCountry"),
     workMode: v("fWork"),
     location: v("fLoc"),
+    educationLevel: v("fEdu"),
+    salary: v("fSalary"),
+    requirements: document.getElementById("fReq").value.trim(),
     deadline: v("fDeadline"),
     descriptionEn: v("fDesc"),
     applyMethod: v("fMethod"),
@@ -145,6 +170,7 @@ function resetForm() {
   document.getElementById("fId").value = "";
   document.getElementById("fCountry").value = "Ethiopia";
   document.getElementById("fWork").value = "onsite";
+  document.getElementById("fEdu").value = "any";
   document.getElementById("fMethod").value = "site";
   document.getElementById("formTitle").textContent = "Add opportunity";
   document.getElementById("saveBtn").textContent = "Save opportunity";
@@ -163,6 +189,9 @@ function editOpp(id) {
   document.getElementById("fCountry").value = o.country || "Ethiopia";
   document.getElementById("fWork").value = o.work_mode || "onsite";
   document.getElementById("fLoc").value = o.location || "";
+  document.getElementById("fEdu").value = o.education_level || "any";
+  document.getElementById("fSalary").value = o.salary || "";
+  document.getElementById("fReq").value = o.requirements || "";
   document.getElementById("fDeadline").value = o.deadline || "";
   document.getElementById("fDesc").value = o.description_en || "";
   document.getElementById("fMethod").value = o.apply_method || "site";
@@ -197,6 +226,8 @@ async function loadOpps() {
           (o.location ? ' · ' + esc(o.location) : '') +
           ' · Deadline: ' + esc(o.deadline || "-") +
           ' · Applications: ' + esc(o.application_count) + '</p>' +
+        '<p class="muted">Education: <b>' + esc(EDU_NAMES[o.education_level || "any"] || "Any level") + '</b>' +
+          (o.salary ? ' · Salary: <b>' + esc(o.salary) + '</b>' : '') + '</p>' +
         '<p class="muted">How applicants apply: <b>' + esc(METHOD_NAMES[method] || method) + '</b></p>' +
         '<p class="muted">' + (method === "site"
           ? (o.hiring_email
